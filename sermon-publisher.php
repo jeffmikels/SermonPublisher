@@ -73,6 +73,11 @@ function sp_custom_post_types()
 		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting'),
 	) );
 }
+
+/* IF YOU ARE RUNNING THE PODCASTING PLUGIN, ADD THIS CODE TO IT TO ADD THE METABOX */
+// add_meta_box('podcasting', 'Podcasting', array($this, 'editForm'), 'sp_sermon', 'normal');
+
+
 function sp_add_sermons_to_feed($qv)
 {
 	if (isset($qv['feed']) && !isset($qv['post_type']))
@@ -84,6 +89,8 @@ function sp_add_sermons_to_feed($qv)
 }
 add_action( 'init', 'sp_custom_post_types' );
 add_filter('request', 'sp_add_sermons_to_feed');
+
+
 
 // meta boxes for sermon pages
 include ("sermon_meta.php");
@@ -100,8 +107,8 @@ function sp_media_player($content)
 	return $content;
 }
 
-add_action('wp_head','media_player_helpers');
-function media_player_helpers()
+add_action('wp_head','sp_media_player_helpers');
+function sp_media_player_helpers()
 {
 ?>
 
@@ -126,23 +133,12 @@ function media_player_helpers()
 }
 
 
-add_action('genesis_before_post_content', 'sonlife_outreach_single_post_image');
-function sonlife_outreach_single_post_image()
-{
-	if ( is_single() or is_page() )
-	{
-		genesis_image( array( 'size' => 'featured', 'attr' => array ('class' => 'attachment-featured featured') ) );
-	}
-}
-
-add_action('genesis_before_post_content', 'sonlife_outreach_show_downloads');
-
-function get_sermons_by_series($series_page_id)
+function sp_get_sermons_by_series($series_page_id)
 {
 	// grab all the 'sermon' posts who have this post's id in their 'sermon_series' custom field
 	$args = array (
 		'numberposts'=> -1,
-		'post_type'=>'sermon',
+		'post_type'=>'sp_sermon',
 		'meta_query' => array (
 			array (
 				'key' => 'sermon_series',
@@ -155,92 +151,6 @@ function get_sermons_by_series($series_page_id)
 	return get_posts($args);
 }
 
-
-function my_get_child_pages($id, $orderby = 'menu_order') {
-	return get_children( array (
-		'post_type' => 'page',
-		'post_status' => 'publish',
-		'post_parent' => $id,
-		'orderby' => $orderby,
-		'order' => 'ASC'
-	) );
-}
-
-function my_get_child_images_from_category($cat_id, $numberposts = 4) {
-	$retval = Array();
-	$posts = get_posts( array (
-		'cat' => $cat_id,
-		'numberposts' => $numberposts
-	) );
-	foreach ($posts as $thisPost) {
-		// get the main image from each post
-		$retval[] = my_get_first_child_image($thisPost->ID);
-	}
-	return $retval;
-}
-
-function my_get_child_images($id, $orderby = 'menu_order') {
-	return get_children( array (
-		'post_type' => 'attachment',
-		'post_mime_type' => 'image',
-		'post_parent' => $id,
-		'orderby' => $orderby,
-		'order' => 'ASC'
-	) );
-}
-
-function my_get_first_child_image($id) {
-	$a = get_children( array (
-		'post_type' => 'attachment',
-		'post_mime_type' => 'image',
-		'post_parent' => $id,
-		'orderby' => 'menu_order',
-		'order' => 'ASC',
-		'numberposts' => 1
-	) );
-	if (is_array($a)) return current($a);
-	else return null;
-}
-
-function my_get_featured_image($id, $size='thumbnail')
-{
-	// first, attempt to get featured image from post id
-	$featured_image = get_post_meta($id, '_thumbnail_id', TRUE);
-	if ( $featured_image )
-	{
-		$featured_image = wp_get_attachment_image_src($featured_image, $size);
-	}
-	else
-	{
-		$featured_image = my_get_first_child_image($id);
-		if ($featured_image)
-		{
-			$featured_image = wp_get_attachment_image_src($featured_image, $size);
-		}
-	}
-	return($featured_image);
-}
-
-function url_exists($url)
-{
-	$file = $url;
-	$file_headers = get_headers($file);
-	if(strpos($file_headers[0], '404 Not Found') === False) {
-			$exists = true;
-	}
-	else {
-			$exists = false;
-	}
-	return $exists;
-}
-
-function my_excerpt($p)
-{
-	if ($p->post_excerpt) return $p->post_excerpt;
-	else return substr(strip_tags($p->post_content), 0, 200) . '...';
-}
-
-
 // add downloads links to posts
 function sp_make_download_links()
 {
@@ -250,7 +160,7 @@ function sp_make_download_links()
 	$enclosures = get_post_custom_values('enclosure');
 	$downloads = get_post_custom_values('download');
 	if ($enclosures || $downloads) {
-		$output .= '<div class="enclosure_links">downloads: |';
+		$output .= '<div class="download_links">downloads: |';
 		if ($enclosures) {
 			foreach ($enclosures as $enclosure) {
 				$encdata = explode("\n",$enclosure);

@@ -16,7 +16,7 @@ function sp_sermon_meta_init()
 	// http://codex.wordpress.org/Function_Reference/add_meta_box
 
 	// add a meta box for each of the wordpress page types: posts and pages
-	foreach (array('sermon') as $type)
+	foreach (array('sp_sermon') as $type)
 	{
 		add_meta_box('sp_sermon_meta', 'Sermon Series', 'sp_sermon_meta_setup', $type, 'side', 'high');
 	}
@@ -36,11 +36,11 @@ function sp_sermon_meta_setup()
 	//my_debug($meta);
 
 	// get all the sermon series
-	$series_pages = get_posts(array ('numberposts'=>-1, 'post_type'=>'series'));
+	$series_pages = get_posts(array ('numberposts'=>-1, 'post_type'=>'sp_series'));
 
 	// meta HTML code
 	echo '<div class="sp_sermon_meta_control">';
-	echo '<select name="sp_sermon_series">';
+	echo '<select name="sermon_series">';
 	echo '<option value="">-- Choose the right series title --</option>';
 
 	foreach ($series_pages as $series_page)
@@ -61,7 +61,7 @@ function sp_sermon_meta_setup()
 }
 
 
-function sermon_meta_save($post_id)
+function sp_sermon_meta_save($post_id)
 {
 	// Bail if we're doing an auto save
 	if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
@@ -92,7 +92,7 @@ function sermon_meta_save($post_id)
 
 	$new_data = $_POST['sermon_series'];
 
-	sermon_meta_clean($new_data);
+	sp_sermon_meta_clean($new_data);
 
 	if ($current_data)
 	{
@@ -108,7 +108,7 @@ function sermon_meta_save($post_id)
 }
 
 
-function sermon_meta_clean(&$arr)
+function sp_sermon_meta_clean(&$arr)
 {
 	if (is_array($arr))
 	{
@@ -116,7 +116,7 @@ function sermon_meta_clean(&$arr)
 		{
 			if (is_array($arr[$i]))
 			{
-				sermon_meta_clean($arr[$i]);
+				sp_sermon_meta_clean($arr[$i]);
 
 				if (!count($arr[$i]))
 				{
