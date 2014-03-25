@@ -82,7 +82,6 @@ function sp_sermon_meta_save($post_id)
 	}
 
 	// authentication passed, save data
-
 	// var types
 	// single: sermon_series[var]
 	// array: sermon_series[var][]
@@ -101,6 +100,7 @@ function sp_sermon_meta_save($post_id)
 	}
 	elseif (!is_null($new_data))
 	{
+		delete_post_meta($post_id,'sermon_series');
 		add_post_meta($post_id,'sermon_series',$new_data,TRUE);
 	}
 

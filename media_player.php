@@ -38,7 +38,7 @@ if ($enclosures)
 		$url = trim($encdata[0]);
 
 		// check to see if url actually exists
-		if (! url_exists($url)) continue;
+		if (! sp_url_exists($url)) continue;
 
 		$ext = substr($url, -4);
 		if (in_array($ext, array('.flv','.ogv','.mp4','.webm'))) $has_video = 1;
