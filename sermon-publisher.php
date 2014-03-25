@@ -4,7 +4,7 @@ Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
 Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site.
 Author: Jeff Mikels
-Version: 0.1
+Version: 0.2
 Author URI: http://jeff.mikels.cc
 */
 
