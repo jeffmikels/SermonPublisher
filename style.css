@@ -3,3 +3,8 @@
 .sermon a:hover {border-left:1px solid black;background:rgba(200,200,200,.3);}
 .sermon-date {text-transform:uppercase;color:#777;font-size:.8em;}
 .sermon h3 {margin:0;}
+.fullwidth {width:100%; height:auto;}
+.download-links {border: 1px solid black; border-left: 0px; border-right:0px;margin:6px 0px;}
+.download-links a{display:inline-block;padding:6px;border-radius:3px;background-color:rgba(200,200,200,.3);}
+.download-links a:hover {background-color:rgba(200,200,200,.8);}
+.media-player-title {text-transform:uppercase;opacity:.6;}

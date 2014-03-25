@@ -4,7 +4,7 @@ Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
 Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site.
 Author: Jeff Mikels
-Version: 0.2
+Version: 0.3
 Author URI: http://jeff.mikels.cc
 */
 
@@ -45,7 +45,7 @@ function sp_custom_post_types()
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
 		'menu_position' => 6,
-		'supports' => array('title', 'editor', 'author', 'thumbnail'),
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
 	));
 
 	register_post_type( 'sp_sermon', array
@@ -70,7 +70,7 @@ function sp_custom_post_types()
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
 		'menu_position' => 7,
-		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting'),
+		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting', 'excerpt'),
 	) );
 }
 
@@ -181,7 +181,7 @@ class SeriesInfoWidget extends WP_Widget
 
 			?>
 
-			<img class="thumbnail alignleft" src="<?php echo $series_thumbnail[0]; ?>"/>
+			<img class="thumbnail" style="width:100%;height:auto;" src="<?php echo $series_thumbnail[0]; ?>"/>
 			This sermon is part of a series called <a href="<?php print $series_permalink; ?>"><?php echo $series_page->post_title; ?></a>. There <?php echo $countval; ?> in this series.
 
 			<?php
@@ -199,7 +199,8 @@ class SeriesInfoWidget extends WP_Widget
 
 			?>
 
-			<img class="thumbnail alignleft" src="<?php echo $series_thumbnail[0]; ?>" />You are viewing the Sermon Series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
+			<img class="thumbnail" style="width:100%;height:auto;" src="<?php echo $series_thumbnail[0]; ?>"/>
+			You are viewing the Sermon Series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
 
 			<?php
 		}
@@ -221,13 +222,13 @@ function sp_make_download_links()
 	$enclosures = get_post_custom_values('enclosure');
 	$downloads = get_post_custom_values('download');
 	if ($enclosures || $downloads) {
-		$output .= '<div class="download_links">downloads: |';
+		$output .= '<div class="download-links">downloads: ';
 		if ($enclosures) {
 			foreach ($enclosures as $enclosure) {
 				$encdata = explode("\n",$enclosure);
 				$url = $encdata[0];
 				$formatdata = unserialize($encdata[3]);
-				$output .= " <a href=\"${encdata[0]}\">${formatdata['format']}</a> |";
+				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${formatdata['format']}</a>";
 			}
 		}
 		if ($downloads) {
@@ -235,12 +236,25 @@ function sp_make_download_links()
 				$encdata = explode("\n",$download);
 				$url = $encdata[0];
 				$format = $encdata[1];
-				$output .= " <a href=\"${encdata[0]}\">${format}</a> |";
+				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
 			}
 		}
 		$output .= '</div>';
 	}
 	return $output;
+}
+
+function sp_has_video()
+{
+	$enclosures = get_post_custom_values('enclosure');
+	$video_extensions = array('.mp4','.ogv','webm');
+	foreach ($enclosures as $e)
+	{
+		$encdata = explode("\n",$enclosure);
+		$url = $encdata[0];
+		if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
+	}
+	return False;
 }
 
 function sp_add_downloads($content)
@@ -249,6 +263,19 @@ function sp_add_downloads($content)
 	return $content;
 }
 add_filter('the_content', 'sp_add_downloads');
+
+function sp_add_series_graphic($content)
+{
+	if (! sp_is_sermon()) return $content;
+	if (has_post_thumbnail()) return $content;
+	if (sp_has_video()) return $content;
+
+	// if we made it this far, we want to grab the series graphic from the sermon series page
+	$series_page_id = get_post_meta(get_the_ID(), 'sermon_series', TRUE);
+	$series_thumbnail = get_the_post_thumbnail($series_page_id, 'large', array('class' => 'fullwidth'));
+	return $series_thumbnail . $content;
+}
+add_filter('the_content', 'sp_add_series_graphic');
 
 
 function sp_add_sermons_in_series($content)
