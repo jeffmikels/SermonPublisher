@@ -18,7 +18,8 @@ function sp_sermon_meta_init()
 	// add a meta box for each of the wordpress page types: posts and pages
 	foreach (array('sp_sermon') as $type)
 	{
-		add_meta_box('sp_sermon_meta', 'Sermon Series', 'sp_sermon_meta_setup', $type, 'side', 'high');
+		add_meta_box('sp_sermon_series_meta', 'Sermon Series', 'sp_sermon_series_meta_setup', $type, 'side', 'high');
+		add_meta_box('sp_sermon_media_meta', 'Sermon Media', 'sp_sermon_media_meta_setup', $type, 'side', 'high');
 	}
 
 	// add a callback function to save any data a user enters in
@@ -26,7 +27,7 @@ function sp_sermon_meta_init()
 }
 
 
-function sp_sermon_meta_setup()
+function sp_sermon_series_meta_setup()
 {
 	global $post;
 
@@ -41,7 +42,7 @@ function sp_sermon_meta_setup()
 	// meta HTML code
 	echo '<div class="sp_sermon_meta_control">';
 	echo '<select name="sermon_series">';
-	echo '<option value="">-- Choose the right series title --</option>';
+	echo '<option value="-1">-- Choose the right series title --</option>';
 
 	foreach ($series_pages as $series_page)
 	{
@@ -60,6 +61,25 @@ function sp_sermon_meta_setup()
 	echo '</div>';
 }
 
+function sp_sermon_media_meta_setup()
+{
+    // wp_nonce_field(plugin_basename(__FILE__), 'sp_sermon_media_nonce');
+     
+	$upload_purposes = array('video','audio','notes','manuscript','slides');
+    $html = '<p class="description">';
+        $html .= 'Upload your Media Files here.';
+    $html .= '</p>';
+	$html .= '<select name="sp_media_purpose">';
+	$html .= '<option value="">-- Select a Purpose for this File --</option>';
+	foreach ($upload_purposes as $purpose)
+	{
+		$html .= '<option value="'.$purpose.'">'.$purpose.'</option>';
+	}
+	$html .= '</select>';
+    $html .= '<input type="file" id="sp_sermon_media" name="sp_sermon_media" value="" size="25">';
+     
+    echo $html;
+}
 
 function sp_sermon_meta_save($post_id)
 {
@@ -67,7 +87,6 @@ function sp_sermon_meta_save($post_id)
 	if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
 
 	// authentication checks
-
 	// make sure data came from our meta box
 	if ( ! isset($_POST['sp_sermon_meta_noncename']) || !wp_verify_nonce($_POST['sp_sermon_meta_noncename'],__FILE__)) return $post_id;
 
@@ -86,27 +105,90 @@ function sp_sermon_meta_save($post_id)
 	// single: sermon_series[var]
 	// array: sermon_series[var][]
 	// grouped array: sermon_series[var_group][0][var_1], sermon_series[var_group][0][var_2]
-
-	$current_data = get_post_meta($post_id, 'sermon_series', TRUE);
-
+	
+	// SERMON SERIES METADATA
+	// $current_data = get_post_meta($post_id, 'sermon_series', TRUE);
 	$new_data = $_POST['sermon_series'];
-
-	sp_sermon_meta_clean($new_data);
-
-	if ($current_data)
-	{
-		if (is_null($new_data)) delete_post_meta($post_id,'sermon_series');
-		else update_post_meta($post_id,'sermon_series',$new_data);
-	}
-	elseif (!is_null($new_data))
-	{
-		delete_post_meta($post_id,'sermon_series');
+	// sp_sermon_meta_clean($new_data);
+	
+	if (-1 == $new_data) delete_post_meta($post_id, 'sermon_series');
+	elseif (! update_post_meta($post_id,'sermon_series',$new_data))
 		add_post_meta($post_id,'sermon_series',$new_data,TRUE);
-	}
+	
+	
+	// SERMON MEDIA UPLOAD
+	// Make sure the file array isn't empty
+    if(!empty($_FILES['sp_sermon_media']['name'])) {
+		
+        // Setup the array of supported file types. In this case, it's just PDF.
+        $supported_types = array('application/pdf','video/mp4','video/ogg','video/webm','audio/mp3','audio/mpeg','audio/ogg');
+     
+        // Get the file type of the upload
+        // $arr_file_type = wp_check_filetype(basename($_FILES['sp_sermon_media']['name']));
+        // $uploaded_type = $arr_file_type['type'];
+		$uploaded_type = $_FILES['sp_sermon_media']['type'];
+		$uploaded_size = $_FILES['sp_sermon_media']['size'];
+		$purpose = $_POST['sp_media_purpose'];
+     
+        // Check if the type is supported. If not, throw an error.
+        if(in_array($uploaded_type, $supported_types)) {
 
+            // Use the WordPress API to upload the file
+            // $upload = wp_upload_bits($_FILES['sp_sermon_media']['name'], null, file_get_contents($_FILES['sp_sermon_media']['tmp_name']));
+ 		   	
+			$upload = wp_handle_upload($_FILES['sp_sermon_media'], array('test_form'=>false));
+			// $upload = media_handle_upload($_FILES['sp_sermon_media'], $post_id, array(), array('test_form'=>false));
+						
+            if(isset($upload['error']) && $upload['error'] != 0)
+			{
+                wp_die('There was an error uploading your file. The error is: ' . $upload['error']);
+            }
+			else
+			{
+				
+				// add an attachment
+				$attachment = array(
+					'guid'           => $upload['url'], 
+					'post_mime_type' => $upload['type'],
+					'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $upload['file'] ) ),
+					'post_content'   => '',
+					'post_status'    => 'inherit'
+				);
+				$attachment_id = wp_insert_attachment($attachment, $upload['file'], $post_id);
+				
+				// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
+				require_once( ABSPATH . 'wp-admin/includes/image.php' );
+
+				// Generate the metadata for the attachment, and update the database record.
+				$attach_data = wp_generate_attachment_metadata( $attachment_id, $filename );
+				wp_update_attachment_metadata( $attachment_id, $attach_data );
+				
+				$pdf_purposes = Array('manuscript','notes','slides');
+				$enclosure_purposes = Array('video','audio');
+				
+				if (in_array($purpose, $enclosure_purposes))
+				{
+					$field_data = $upload['url'] . "\n";
+					$field_data .= $uploaded_size . "\n";
+					$field_data .= $uploaded_type . "\n";
+					$field_data .= serialize(array('format'=>$purpose, 'keywords'=>'', 'author'=>'','length'=>'','explicit'=>''));
+					add_post_meta($post_id, 'enclosure', $field_data);
+				}
+				else add_post_meta($post_id, 'download', $upload['url']);
+                // update_post_meta($post_id, 'download', $upload);
+            } // end if/else
+
+        } else {
+            wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed as a sermon media file.");
+        } // end if/else
+     
+    } // end if
 	return $post_id;
 }
-
+function sp_allow_file_uploads() {
+    echo ' enctype="multipart/form-data"';
+} // end update_edit_form
+add_action('post_edit_form_tag', 'sp_allow_file_uploads');
 
 function sp_sermon_meta_clean(&$arr)
 {

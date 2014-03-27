@@ -8,3 +8,6 @@
 .download-links a{display:inline-block;padding:6px;border-radius:3px;background-color:rgba(200,200,200,.3);}
 .download-links a:hover {background-color:rgba(200,200,200,.8);}
 .media-player-title {text-transform:uppercase;opacity:.6;}
+.series.most-recent {text-align:center;}
+.series-description {position:relative;background:rgba(000,000,000,.8);color:white;top:-50px;height:50px;}
+.series-gallery .series-item {width:200px;float:left;max-width:30%;}
