@@ -20,12 +20,13 @@ add_image_size( 'sp_banner', 1040, 400, TRUE );
 add_image_size( 'sp_poster', 1280, 720, TRUE );
 add_image_size( 'sp_thumb', 320, 180, TRUE );
 add_filter( 'image_size_names_choose', 'sp_custom_sizes' );
-function sp_custom_sizes( $sizes ) {
-    return array_merge( $sizes, array(
-        'sp_banner' => __('Ultra-Wide Banner'),
+function sp_custom_sizes( $sizes )
+{
+	return array_merge( $sizes, array(
+		'sp_banner' => __('Ultra-Wide Banner'),
 		'sp_poster' => __('Standard 16x9 Sermon Image'),
 		'sp_thumb' => __('Small 16x9 Sermon Thumbnail')
-    ) );
+	) );
 }
 
 
@@ -114,6 +115,8 @@ class SeriesInfoWidget extends WP_Widget
 		extract($args, EXTR_SKIP);
 		global $post;
 
+		$thumbnail_size = 'sp_thumb';
+
 		echo $before_widget;
 		// echo '<div id="sp_series_info_widget"'
 
@@ -124,7 +127,7 @@ class SeriesInfoWidget extends WP_Widget
 			$series_page_id = get_post_meta($post->ID, 'sermon_series', TRUE);
 			$series_page = get_post($series_page_id);
 			$series_permalink = get_permalink($series_page_id);
-			$series_thumbnail = sp_get_image($series_page_id, 'thumbnail');
+			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
 			$sermons = sp_get_sermons_by_series($series_page_id);
 
@@ -134,7 +137,7 @@ class SeriesInfoWidget extends WP_Widget
 
 			?>
 
-			<img class="thumbnail" style="width:100%;height:auto;" src="<?php echo $series_thumbnail[0]; ?>"/>
+			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
 			This sermon is part of a series called <a href="<?php print $series_permalink; ?>"><?php echo $series_page->post_title; ?></a>. There <?php echo $countval; ?> in this series.
 
 			<?php
@@ -143,7 +146,7 @@ class SeriesInfoWidget extends WP_Widget
 		elseif (sp_is_series())
 		{
 			$series_page_id = $post->ID;
-			$series_thumbnail = sp_get_image($series_page_id, 'thumbnail');
+			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
 			$sermons = sp_get_sermons_by_series($series_page_id);
 
@@ -153,7 +156,7 @@ class SeriesInfoWidget extends WP_Widget
 
 			?>
 
-			<img class="thumbnail" style="width:100%;height:auto;" src="<?php echo $series_thumbnail[0]; ?>"/>
+			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
 			You are viewing the Sermon Series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
 
 			<?php
@@ -185,7 +188,7 @@ function sp_sermon_content($content)
 	$series_graphic = sp_add_series_graphic('');
 	$media_player = sp_add_media_player('',false);
 	$downloads = sp_add_downloads('');
-	
+
 	return $series_graphic . $media_player . $downloads . $content;
 }
 add_filter('the_content', 'sp_sermon_content');
@@ -219,13 +222,13 @@ function sp_series_archive()
 		$posts = $wp_query->posts;
 		$most_recent = $posts[0];
 		$the_rest = array_slice($posts,1);
-		
+
 		// display the most recent series as if it were a single
 		$post = $most_recent;
 		setup_postdata($post);
-		
+
 		?>
-		
+
 			<div class="series most-recent">
 				<a href="<?php the_permalink(); ?>">
 					<?php print the_post_thumbnail('sp_poster',array('class' => 'fullwidth', 'title'=>get_the_title())); ?>
@@ -235,33 +238,33 @@ function sp_series_archive()
 					</div>
 				</a>
 			</div>
-			
+
 			<div class="series series-gallery">
-		
+
 		<?php
-		
+
 			foreach ($the_rest as $post)
 			{
 				setup_postdata($post);
 				?>
-				
+
 				<div class="series-item">
 				<a href="<?php the_permalink(); ?>">
 					<?php print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
 				</a>
 				</div>
-				
-				
+
+
 				<?php
 			}
 			$wp_query->posts = Array();
-		
+
 		?>
-		
+
 			</div>
-			
+
 		<?php
-		
+
 		return;
 	}
 	return;
@@ -331,7 +334,7 @@ function sp_add_media_player($content, $send_to_browser = TRUE)
 {
 	global $post;
 	if (!sp_is_sermon()) return $content;
-	
+
 	if ($send_to_browser)
 	{
 		print "<!-- MEDIA PLAYER -->\n";
@@ -353,22 +356,24 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 {
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
-	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);	
+	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);
 	echo $before;
 	?>
-	
+
 	<div id="most-recent-series">
 		<div class="featured-series">
 			<a href="<?php echo get_permalink($featured_series_id); ?>">
-			<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
-			<div class="featured-series-image-caption">
-				<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
-				<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
-			</div>
+				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
+				<div class="featured-series-image-overlay">
+					<div class="featured-series-image-caption">
+						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+					</div>
+				</div>
 			</a>
 		</div>
 	</div>
-	
+
 	<?php
 	echo $after;
 	return $featured_series_id;
@@ -388,25 +393,27 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 	$exclude = explode(',', str_replace(' ', '', $exclude));
 	echo $before;
 	?>
-	
+
 	<div class="series-gallery">
 		<?php foreach ($series_posts as $series): ?>
 		<?php if (in_array($series->ID, $exclude)) continue; ?>
 		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
-		
+
 		<div class="series-gallery-item">
 			<a href="<?php print get_permalink($series->ID); ?>" >
 				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
-				<div class="series-gallery-item-image-caption">
-					<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
-					<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
-					<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+				<div class="series-gallery-item-image-overlay">
+					<div class="series-gallery-item-image-caption">
+						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
+						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					</div>
 				</div>
 			</a>
 		</div>
 		<?php endforeach; ?>
 	</div>
-	
+
 	<?php
 }
 function sp_gallery_helper($atts)
@@ -416,7 +423,7 @@ function sp_gallery_helper($atts)
 		'before' => '',
 		'after' => '',
 		'exclude' => '' ), $atts ) );
-	
+
 	ob_start();
 	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
 	return ob_get_clean();
@@ -427,7 +434,7 @@ function sp_full_gallery_helper($atts)
 		'thumbnail_size' => 'sp_poster',
 		'before' => '',
 		'after' => ''), $atts ) );
-	
+
 	ob_start();
 	$fid = sp_most_recent_series($thumbnail_size, $before, $after);
 	sp_past_series_gallery('sp_thumb','','',$fid);
@@ -474,11 +481,14 @@ function sp_has_video()
 {
 	$enclosures = get_post_custom_values('enclosure');
 	$video_extensions = array('.mp4','.ogv','webm');
-	foreach ($enclosures as $e)
+	if ($enclosures)
 	{
-		$encdata = explode("\n",$enclosure);
-		$url = $encdata[0];
-		if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
+		foreach ($enclosures as $e)
+		{
+			$encdata = explode("\n",$enclosure);
+			$url = $encdata[0];
+			if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
+		}
 	}
 	return False;
 }
@@ -558,7 +568,7 @@ function sp_get_featured_series()
 function sp_get_all_series()
 {
 	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
-		
+
 }
 
 
