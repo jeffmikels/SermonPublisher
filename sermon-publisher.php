@@ -207,7 +207,7 @@ add_filter('request', 'sp_add_sermons_to_feed');
 
 
 //add_filter('the_content', function($content){global $wp; print "<pre>"; print_r($wp);print "</pre>"; die();});
-add_action('loop_start', 'sp_series_archive');
+//add_action('loop_start', 'sp_series_archive');
 function sp_series_archive()
 {
 	global $wp_query;
