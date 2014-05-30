@@ -38,7 +38,7 @@ if ($enclosures)
 		$url = trim($encdata[0]);
 
 		// check to see if url actually exists
-		if (! url_exists($url)) continue;
+		if (! sp_url_exists($url)) continue;
 
 		$ext = substr($url, -4);
 		if (in_array($ext, array('.flv','.ogv','.mp4','.webm'))) $has_video = 1;
@@ -94,7 +94,7 @@ if ($media_items)
 			<!-- Video for Everybody, Kroc Camen of Camen Design -->
 			<video id="<?php echo $media_player_id; ?>" class="media-player-player" poster="<?php echo $poster; ?>" controls="controls" preload="<?php echo $preload; ?>" style="width: <?php echo $player_width; ?>;background:black;">
 
-			  <!-- MP4 for Safari, IE9, iPhone, iPad, Android, and Windows Phone 7 -->
+			<!-- MP4 for Safari, IE9, iPhone, iPad, Android, and Windows Phone 7 -->
 				<?php if ($media_items['mp4'] ): ?>
 				<source src="<?php echo $media_items['mp4'];?>"  type="video/mp4" codecs="avc1.42E01E, mp4a.40.2" />
 				<?php endif; ?>
@@ -109,14 +109,14 @@ if ($media_items)
 				<source src="<?php echo $media_items['ogv'];?>"  type="video/ogg" codecs="theora, vorbis" />
 				<?php endif; ?>
 
-			    <!-- Flash fallback for non-HTML5 browsers without JavaScript -->
-			    <object type="application/x-shockwave-flash" style="width: <?php echo $player_width; ?>; max-width: 100%; height: <?php echo $height; ?>;"
+			<!-- Flash fallback for non-HTML5 browsers without JavaScript -->
+			<object type="application/x-shockwave-flash" style="width: <?php echo $player_width; ?>; max-width: 100%; height: <?php echo $height; ?>;"
 						data="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf">
-			        <param name="movie" value="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf" />
-			        <param name="flashvars" value="controls=true&file=<?php echo $media_items['mp4'];?>" />
-			        <!-- Image as a last resort -->
-			        <img src="<?php echo $poster; ?>" width="100%" title="No video playback capabilities" />
-			    </object>
+						<param name="movie" value="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf" />
+						<param name="flashvars" value="controls=true&file=<?php echo $media_items['mp4'];?>" />
+						<!-- Image as a last resort -->
+						<img src="<?php echo $poster; ?>" width="100%" title="No video playback capabilities" />
+			</object>
 			</video>
 		</div>
 

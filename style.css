@@ -1,0 +1,54 @@
+.sermon {margin:20px 0;}
+.sermon a {border-left:1px solid white; text-decoration:none;display:block;padding:10px;background:rgba(200,200,200,.1);}
+.sermon a:hover {border-left:1px solid black;background:rgba(200,200,200,.3);}
+.sermon-date {text-transform:uppercase;color:#777;font-size:.8em;}
+.sermon h3 {margin:0;}
+.fullwidth {width:100%; height:auto;}
+.download-links {border: 1px solid black; border-left: 0px; border-right:0px;margin:6px 0px;}
+.download-links a{display:inline-block;padding:6px;border-radius:3px;background-color:rgba(200,200,200,.3);}
+.download-links a:hover {background-color:rgba(200,200,200,.8);}
+.media-player-title {text-transform:uppercase;opacity:.6;}
+
+.widget .sp_thumb {width:100%;height:auto;}
+
+
+.featured-series {position:relative;margin-bottom:20px;}
+.series-gallery-item {position:relative;}
+.featured-series div, .series-gallery div {box-sizing:border-box;}
+.featured-series .featured-series-image,
+.series-gallery-item-image {width:100%; height:auto;transition:opacity .5s;}
+
+.featured-series a,
+.series-gallery-item a
+{text-decoration:none;color:#bbb;}
+
+.featured-series a:hover,
+.series-gallery-item a:hover
+{color:white;}
+.featured-series a:hover .featured-series-image {opacity:.9;}
+
+
+/* .series-gallery>div {margin-left:1.5%;margin-right:1.5%;} */
+.series-gallery>div {margin:1%;width:32%;}
+.series-gallery>div:nth-child(3n+1) {margin-left:0;}
+.series-gallery>div:nth-child(3n+0) {margin-right:0;}
+.series-gallery-item {font-size:10pt;float:left;position:relative;}
+
+/* CAPTIONS */
+.featured-series-image-overlay,
+.series-gallery-item-image-overlay
+{width:100%;background-color:rgba(0,0,0,.6);box-sizing:border-box;padding:6px;position:absolute;visibility:hidden;opacity:0;overflow:hidden;transition:opacity .5s;}
+.featured-series-image-overlay {height:30%;top:70%;}
+.series-gallery-item-image-overlay {height:100%;top:0;padding:20px;}
+
+.featured-series a:hover .featured-series-image-overlay,
+.series-gallery-item a:hover .series-gallery-item-image-overlay
+{opacity:1;visibility:visible;}
+
+.featured-series-image-caption,
+.series-gallery-item-image-caption
+{overflow:hidden;max-height:100%;}
+
+.featured-series-title, .series-gallery-item-title {font-weight:700;text-transform:uppercase;}
+.featured-series-excerpt, .series-gallery-item-excerpt {font-weight:300;font-style:italic;line-height:.9em;}
+.featured-series-date, .series-gallery-item-date {font-weight:300;font-size:.9em;}
