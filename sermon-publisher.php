@@ -149,6 +149,7 @@ class SeriesInfoWidget extends WP_Widget
 			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
 			$sermons = sp_get_sermons_by_series($series_page_id);
+<<<<<<< HEAD
 
 			if ((count($sermons)) == 0) $countval = 'are no sermons';
 			elseif ((count($sermons)) == 1) $countval = 'is one sermon';
@@ -156,6 +157,15 @@ class SeriesInfoWidget extends WP_Widget
 
 			?>
 
+=======
+
+			if ((count($sermons)) == 0) $countval = 'are no sermons';
+			elseif ((count($sermons)) == 1) $countval = 'is one sermon';
+			else $countval = sprintf('are %d sermons', count($sermons));
+
+			?>
+
+>>>>>>> FETCH_HEAD
 			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
 			You are viewing the Sermon Series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
 
@@ -165,6 +175,7 @@ class SeriesInfoWidget extends WP_Widget
 
 		echo $after_widget;
 	}
+<<<<<<< HEAD
 }
 add_action( 'widgets_init', function() {return register_widget("SeriesInfoWidget"); });
 
@@ -196,6 +207,39 @@ add_filter('the_content', 'sp_sermon_content');
 
 function sp_add_sermons_to_feed($qv)
 {
+=======
+}
+add_action( 'widgets_init', function() {return register_widget("SeriesInfoWidget"); });
+
+
+
+
+
+// SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
+function sp_series_content($content)
+{
+	if (! sp_is_series()) return $content;
+	$content = sp_add_sermons_in_series($content);
+	return $content;
+}
+add_filter('the_content', 'sp_series_content');
+
+
+function sp_sermon_content($content)
+{
+	if(! sp_is_sermon()) return $content;
+	$series_graphic = sp_add_series_graphic('');
+	$media_player = sp_add_media_player('',false);
+	$downloads = sp_add_downloads('');
+
+	return $series_graphic . $media_player . $downloads . $content;
+}
+add_filter('the_content', 'sp_sermon_content');
+
+
+function sp_add_sermons_to_feed($qv)
+{
+>>>>>>> FETCH_HEAD
 	if (isset($qv['feed']) && !isset($qv['post_type']))
 	{
 		$qv['post_type'] = array('post', 'sp_sermon', 'sp_series', 'page');
@@ -256,7 +300,10 @@ function sp_series_archive()
 
 
 				<?php
+<<<<<<< HEAD
 
+=======
+>>>>>>> FETCH_HEAD
 			}
 			$wp_query->posts = Array();
 
@@ -378,6 +425,17 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	<?php
 	echo $after;
 	return $featured_series_id;
+<<<<<<< HEAD
+=======
+}
+function sp_featured_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_poster',
+		'before' => '',
+		'after' => ''), $atts ) );
+	sp_most_recent_series($thumbnail_size, $before, $after);
+>>>>>>> FETCH_HEAD
 }
 function sp_featured_helper($atts)
 {
@@ -407,6 +465,7 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 		<?php if (in_array($series->ID, $exclude)) continue; ?>
 		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
 
+<<<<<<< HEAD
 		<div class="series-gallery-item item-<?php echo $class; ?>">
 			<a href="<?php print get_permalink($series->ID); ?>" >
 				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
@@ -444,6 +503,57 @@ function sp_full_gallery_helper($atts)
 		'after' => ''), $atts ) );
 
 	ob_start();
+=======
+function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
+{
+	$series_posts = sp_get_all_series();
+	$exclude = explode(',', str_replace(' ', '', $exclude));
+	echo $before;
+	?>
+
+	<div class="series-gallery">
+		<?php foreach ($series_posts as $series): ?>
+		<?php if (in_array($series->ID, $exclude)) continue; ?>
+		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+
+		<div class="series-gallery-item">
+			<a href="<?php print get_permalink($series->ID); ?>" >
+				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
+				<div class="series-gallery-item-image-overlay">
+					<div class="series-gallery-item-image-caption">
+						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
+						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					</div>
+				</div>
+			</a>
+		</div>
+		<?php endforeach; ?>
+	</div>
+
+	<?php
+}
+function sp_gallery_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_thumb',
+		'before' => '',
+		'after' => '',
+		'exclude' => '' ), $atts ) );
+
+	ob_start();
+	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
+	return ob_get_clean();
+}
+function sp_full_gallery_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_poster',
+		'before' => '',
+		'after' => ''), $atts ) );
+
+	ob_start();
+>>>>>>> FETCH_HEAD
 	$fid = sp_most_recent_series($thumbnail_size, $before, $after);
 	sp_past_series_gallery('sp_thumb','','',$fid);
 	return ob_get_clean();
