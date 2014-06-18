@@ -22,6 +22,13 @@ function sp_sermon_meta_init()
 		add_meta_box('sp_sermon_media_meta', 'Sermon Media', 'sp_sermon_media_meta_setup', $type, 'side', 'high');
 	}
 
+	// add podcasting meta box to sermon pages if podcasting plugin is installed;
+	if (is_plugin_active('podcasting/podcasting.php'))
+	{
+		global $podcasting_metabox;
+		add_meta_box('podcasting', 'Podcasting', array($podcasting_metabox, 'editForm'), 'sp_sermon', 'normal');
+	}
+	
 	// add a callback function to save any data a user enters in
 	add_action('save_post','sp_sermon_meta_save');
 }

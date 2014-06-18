@@ -2,7 +2,7 @@
 /*
 Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
-Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery]
+Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
 Author: Jeff Mikels
 Version: 0.4
 Author URI: http://jeff.mikels.cc
@@ -10,7 +10,6 @@ Author URI: http://jeff.mikels.cc
 
 /* TODO */
 /*
-	implement sermon audio upload with custom meta box
 	implement admin options page for setting alternate upload locations like S3 servers, etc.
 */
 
@@ -87,10 +86,6 @@ add_action( 'init', 'sp_custom_post_types' );
 
 /** META BOX CODE */
 include ("sermon_meta.php");
-
-
-/* IF YOU ARE RUNNING THE PODCASTING PLUGIN, ADD THIS CODE TO IT TO ADD THE METABOX */
-// add_meta_box('podcasting', 'Podcasting', array($this, 'editForm'), 'sp_sermon', 'normal');
 
 
 // ADD A NEW SERIES INFO WIDGET
@@ -390,11 +385,19 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 	?>
 
 	<div class="series-gallery">
+		
+		<?php
+		$classes = array('first','middle','last');
+		$counter = 0;
+		$class = $classes[$counter];
+		?>
+		
+		
 		<?php foreach ($series_posts as $series): ?>
 		<?php if (in_array($series->ID, $exclude)) continue; ?>
 		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
 
-		<div class="series-gallery-item">
+		<div class="series-gallery-item item-<?php echo $class; ?>">
 			<a href="<?php print get_permalink($series->ID); ?>" >
 				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
 				<div class="series-gallery-item-image-overlay">
@@ -406,6 +409,7 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 				</div>
 			</a>
 		</div>
+		<?php $counter = ($counter + 1) % 3; ?>
 		<?php endforeach; ?>
 	</div>
 
