@@ -91,11 +91,12 @@ function sp_sermon_media_meta_setup()
 	else
 	{
 		$html .= '<div class="sp_previous_uploads">';
-		$html .= '<table><tr><th>DEL?</th><th>FILE</th></tr>';
+		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th></tr>';
 
 		foreach ($previous_uploads as $pu)
 		{
 			$attachment_name = basename (get_attached_file($pu->ID, TRUE));
+			
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
 			$html .= '<tr>';
@@ -193,7 +194,7 @@ function sp_sermon_meta_save($post_id)
 	if(!empty($_FILES['sp_sermon_media']['name']))
 	{
 
-		// Setup the array of supported file types. In this case, it's just PDF.
+		// Setup the array of supported file types.
 		$supported_types = array('application/pdf','video/mp4','video/ogg','video/webm','audio/mp3','audio/mpeg','audio/ogg');
 
 		// Get the file type of the upload
