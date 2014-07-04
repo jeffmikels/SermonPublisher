@@ -4,6 +4,7 @@ Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
 Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
 Author: Jeff Mikels
+Text Domain: sermon-publisher
 Version: 0.4
 Author URI: http://jeff.mikels.cc
 */
@@ -56,24 +57,28 @@ function sp_custom_post_types()
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
 	));
 
+	$sermon_words = sp_get_sermon_words();
+	$singular = $sermon_words['singular'];
+	$plural = $sermon_words['plural'];
+
 	register_post_type( 'sp_sermon', array
 	(
 		'labels' => array
 		(
-			'name' => __( 'Sermons' ),
-			'singular_name' => __( 'Sermon' ),
-			'add_new' => __( 'Add New Sermon' ),
-			'add_new_item' => __( 'Add New Sermon' ),
-			'edit_item' => __( 'Edit Sermon' ),
-			'new_item' => __( 'New Sermon' ),
-			'view_item' => __( 'View Sermon' ),
-			'search_items' => __( 'Search Sermons' ),
-			'not_found' => __( 'No Sermons found' ),
-			'not_found_in_trash' => __( 'No Sermons found in Trash' ),
+			'name' => sprintf( __( '%s' ), ucwords($plural)),
+			'singular_name' => sprintf( __( '%s' ), ucwords($singular)),
+			'add_new' => sprintf( __( 'Add New %s' ), ucwords($singular)),
+			'add_new_item' => sprintf( __( 'Add New %s' ), ucwords($singular)),
+			'edit_item' => sprintf( __( 'Edit %s' ), ucwords($singular)),
+			'new_item' => sprintf( __( 'New %s' ), ucwords($singular)),
+			'view_item' => sprintf( __( 'View %s' ), ucwords($singular)),
+			'search_items' => sprintf( __( 'Search %s' ), ucwords($plural)),
+			'not_found' => sprintf( __( 'No %s Found' ), ucwords($plural)),
+			'not_found_in_trash' => sprintf( __( 'No %s Found in Trash' ), ucwords($plural)),
 		),
 		'public' => true,
 		'has_archive' => true,
-		'rewrite' => array('slug' => 'sermon'),
+		'rewrite' => array('slug' => $singular),
 		'taxonomies' => array('category'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
@@ -106,6 +111,10 @@ class SeriesInfoWidget extends WP_Widget
 		extract($args, EXTR_SKIP);
 		global $post;
 
+		$sermon_words = sp_get_sermon_words();
+		$singular = $sermon_words['singular'];
+		$plural = $sermon_words['plural'];
+
 		$thumbnail_size = 'sp_thumb';
 
 		echo $before_widget;
@@ -122,14 +131,14 @@ class SeriesInfoWidget extends WP_Widget
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
 			$sermons = sp_get_sermons_by_series($series_page_id);
 
-			if ((count($sermons) - 1) == 0) $countval = 'are no other sermons';
-			elseif ((count($sermons) - 1) == 1) $countval = 'is one other sermon';
-			else $countval = sprintf('are %d other sermons', count($sermons) - 1);
+			if ((count($sermons) - 1) == 0) $countval = 'are no other ' . $plural;
+			elseif ((count($sermons) - 1) == 1) $countval = 'is one other ' . $singular;
+			else $countval = sprintf('are %d other %s', count($sermons) - 1, $plural);
 
 			?>
 
 			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			This sermon is part of a series called <a href="<?php print $series_permalink; ?>"><?php echo $series_page->post_title; ?></a>. There <?php echo $countval; ?> in this series.
+			<p class="sp_caption">This <?php echo $singular; ?> is part of a series called <a href="<?php print $series_permalink; ?>"><?php echo $series_page->post_title; ?></a>. There <?php echo $countval; ?> in this series.</p>
 
 			<?php
 		}
@@ -141,14 +150,14 @@ class SeriesInfoWidget extends WP_Widget
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
 			$sermons = sp_get_sermons_by_series($series_page_id);
 
-			if ((count($sermons)) == 0) $countval = 'are no sermons';
-			elseif ((count($sermons)) == 1) $countval = 'is one sermon';
-			else $countval = sprintf('are %d sermons', count($sermons));
+			if ((count($sermons)) == 0) $countval = 'are no ' . $plural;
+			elseif ((count($sermons)) == 1) $countval = 'is one ' . $singular;
+			else $countval = sprintf('are %d %s', count($sermons), $plural);
 
 			?>
 
 			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			You are viewing the Sermon Series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
+			You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
 
 			<?php
 		}
@@ -264,6 +273,10 @@ function sp_series_archive()
 // SERIES MODIFICATIONS
 function sp_add_sermons_in_series($content)
 {
+	$sermon_words = sp_get_sermon_words();
+	$singular = $sermon_words['singular'];
+	$plural = $sermon_words['plural'];
+
 	if (! sp_is_series()) return $content;
 	else
 	{
@@ -273,7 +286,7 @@ function sp_add_sermons_in_series($content)
 		$sermons = sp_get_sermons_by_series($series_id);
 
 		$sermons_html = '<div class="sermon-listing series-'.$series_slug.'">';
-		$sermons_html = '<h2>Sermons in this Series</h2>';
+		$sermons_html .= sprintf('<h2>%s in this Series</h2>', ucwords($plural));
 
 		if (count($sermons) > 0)
 		{
@@ -295,7 +308,7 @@ function sp_add_sermons_in_series($content)
 				$sermons_html .= $this_html;
 			}
 		}
-		else $sermons_html .= 'NO SERMONS HAVE YET BEEN POSTED TO THIS SERIES';
+		else $sermons_html .= sprintf('NO %s HAVE YET BEEN POSTED TO THIS SERIES', strtoupper($plural));
 	}
 	return $content . $sermons_html;
 }
@@ -385,14 +398,14 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 	?>
 
 	<div class="series-gallery">
-		
+
 		<?php
 		$classes = array('first','middle','last');
 		$counter = 0;
 		$class = $classes[$counter];
 		?>
-		
-		
+
+
 		<?php foreach ($series_posts as $series): ?>
 		<?php if (in_array($series->ID, $exclude)) continue; ?>
 		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
@@ -572,6 +585,14 @@ function sp_get_all_series()
 }
 
 
+function sp_get_sermon_words()
+{
+	$options = get_option('sp_options');
+	$singular = empty($options['sermon_word_singular']) ? 'sermon' : $options['sermon_word_singular'];
+	$plural = empty($options['sermon_word_plural']) ? 'sermons' : $options['sermon_word_plural'];
+	return Array('singular' => $singular, 'plural' => $plural);
+}
+
 // WORDPRESS MODIFICATION FUNCTIONS
 function sp_add_styles()
 {
@@ -605,4 +626,363 @@ function sp_debug($s)
 	print_r($s);
 	print "</pre>";
 }
+
+
+/* Add Administration Pages */
+if ( is_admin() )
+{
+	add_action ('admin_menu', 'sp_admin_menu');
+	add_action ('admin_init', 'sp_register_options');
+}
+
+function sp_admin_menu()
+{
+	add_options_page('Sermon Publisher Options', 'Sermon Publisher', 'manage_options', 'sermon-publisher-options', 'sp_options_page');
+}
+
+function sp_options_page()
+{
+	if ( !current_user_can('manage_options') ) wp_die( __('You do not have sufficient permissions to access this page.' ) );
+
+	if (isset($_GET['settings-updated']) && $_GET['settings-updated']) flush_rewrite_rules();
+
+	// HANDLE POSTED DATA
+	// include "options.php";
+	?>
+
+	<div class="wrap">
+		<h2>Sermon Publisher Options</h2>
+		<div class="sp_thanks updated">
+			<p>
+				Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
+				It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
+			</p>
+		</div>
+
+		<?php ini_set('max_execution_time', '300'); ?>
+		<?php if (ini_get('max_execution_time') < '300'): ?>
+			<div class="sp_alert error">
+				Your server is configured to kill PHP scripts after <?php echo ini_get('max_execution_time'); ?> seconds. Uploading files to archive.org may take longer than that. If you have errors uploading to archive.org, consider increasing this value in your php.ini file.
+			</div>
+		<?php endif; ?>
+
+		<div class="sp_podcasting_information updated">
+		<?php if(!defined('PODCASTING_VERSION')): ?>
+			It looks like you haven't yet installed the <a href="https://wordpress.org/plugins/podcasting/">Podcasting Plugin</a> yet. The advantage of the podcasting plugin is that you can host multiple media files on your site and the plugin will automatically create separate podcast feeds for each type. It's convenient, but not needed.
+		<?php else: ?>
+			<?php $location = get_option('pod_player_location'); ?>
+			<?php $formats = unserialize(get_option('pod_formats')); ?>
+			<?php if (! array_key_exists('audio', $formats) || $location != '') : ?>
+			PODCASTING: It looks like you have the Podcasting Plugin successfully installed, but make sure you do the following things on its settings page:
+			<ul>
+				<?php if ($location != '') echo "<li>SET podcast player location to \"Manual.\"</li>"; ?>
+				<?php if (! array_key_exists('video', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"video.\" (If you want to use video files.)</li>"; ?>
+				<?php if (! array_key_exists('audio', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"audio.\"</li>"; ?>
+			</ul>
+			<?php else: ?>
+			PODCASTING: It looks like you have the Podcasting Plugin successfully installed and configured properly!
+			<?php endif; ?>
+		<?php endif; ?>
+		</div>
+
+		<?php $stored_options = get_option('sp_options'); ?>
+
+		<?php
+
+		$options = Array(
+			'sermon_word_singular'=>Array(
+				'type'=>'text',
+				'label'=>'"Sermon" Word',
+				'value'=>'sermon',
+				'description'=>'What word should be used for "sermon" on public pages? The default word is "sermon."'
+			),
+			'sermon_word_plural'=>Array(
+				'type'=>'text',
+				'label'=>'"Sermons" Word',
+				'value'=>'sermons',
+				'description'=>'What word should be used for "sermons" on public pages? The default word is "sermons."'
+			),
+			'delete_uploads'=>Array(
+				'type'=>'checkbox',
+				'label'=>'Delete Uploads',
+				'value'=>'0',
+				'checkvalue'=>'1',
+				'description'=>'If this box is checked, we will delete all uploads from the WordPress media library when the post is published.'
+			),
+			'send_to_archive'=>Array(
+				'type'=>'checkbox',
+				'label'=>'Send to Archive.org',
+				'value'=>'0',
+				'checkvalue'=>'1',
+				'description'=>'If this box is checked, we will attempt to cross-post uploaded media to archive.org using the settings below.'
+			),
+			'archive_access_key'=>Array(
+				'type'=>'text',
+				'label'=>'Archive.org Access Key',
+				'value'=>'',
+				'description'=>'Enter your Archive.org S3 Access Key. You can find it by logging in to your archive.org account and visiting <a href="http://archive.org/account/s3.php">http://archive.org/account/s3.php</a>.'
+			),
+			'archive_secret_key'=>Array(
+				'type'=>'text',
+				'label'=>'Archive.org Secret Key',
+				'value'=>'',
+				'description'=>'Enter your Archive.org S3 Secret Key. You can find it by logging in to your archive.org account and visiting <a href="http://archive.org/account/s3.php">http://archive.org/account/s3.php</a>.'
+			),
+			'archive_collection'=>Array(
+				'type'=>'text',
+				'label'=>'Archive.org Collection',
+				'value'=>'test_item',
+				'description'=>'Enter the name of the archive.org collection you to which I should submit these files. For testing, use the "test_item" collection.'
+			),
+			'archive_creator'=>Array(
+				'type'=>'text',
+				'label'=>'Archive.org Creator',
+				'value'=>'',
+				'description'=>'Enter the name of the "creator" of this item. Usually, it will be the name of the teacher who delivered this sermon.'
+			),
+			'archive_keywords'=>Array(
+				'type'=>'text',
+				'label'=>'Archive.org Keywords',
+				'value'=>'',
+				'description'=>'Enter a list of keyword phrases separated by semicolons.'
+			),
+			'archive_license'=>Array(
+				'type'=>'text',
+				'label'=>'Creative Commons License',
+				'value'=>'',
+				'description'=>'Enter the url for a creative commons license. You may choose one here: <a href="http://creativecommons.org/choose/" target="_blank">http://creativecommons.org/choose/</a>.'
+			),
+
+		);
+
+
+		// populate stored values
+		foreach ($stored_options as $key=>$value)
+		{
+			$options[$key]['value'] = $value;
+		}
+		if (! function_exists('curl_init'))
+		{
+			$options['archive_upload']['value']='';
+			?>
+
+			<div class="sp_alert error">
+				Your server is configured without PHP's libCURL features. Uploading to archive.org will not be possible.
+			</div>
+
+			<?php
+		}
+		?>
+
+
+		<form method="post" action="options.php">
+			<?php settings_fields('sp_options'); ?>
+			<?php //do_settings_sections('sp-option-group'); ?>
+
+			<table class="form-table">
+
+				<?php foreach ($options as $key=>$value): ?>
+				<tr valign="top">
+					<th scope="row"><?php echo $value['label']; ?></th>
+					<td>
+						<?php if ($value['type'] == 'checkbox') : ?>
+						<input name="sp_options[<?php echo $key; ?>]" type="checkbox" value="<?php echo htmlentities($value['checkvalue']); ?>" <?php checked('1', $value['value']); ?> /> <?php echo $value['label']; ?>
+						<?php elseif ($value['type'] == 'text') : ?>
+						<input style="width:60%;" name="sp_options[<?php echo $key; ?>]" type="text" value="<?php echo htmlentities($value['value']); ?>" />
+						<?php endif; ?>
+						<p><?php echo $value['description']; ?></p>
+					</td>
+				</tr>
+				<?php endforeach; ?>
+
+			</table>
+
+			<?php submit_button(); ?>
+
+		</form>
+	</div>
+
+	<?php
+}
+
+add_action( 'wp_ajax_sp_upload', 'sp_ajax_upload_listener' );
+function sp_ajax_upload_listener()
+{
+	$post_id = $_POST['post_id'];
+	$archive_completed_uploads = get_post_meta('sp_archive_uploaded_file');
+	
+	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
+	if ($file_path == '')
+	{
+		//attempt to upload all the files
+		$previous_uploads = array();
+		$args = array(
+			'post_parent' => $post_id,
+			'post_type' => 'attachment',
+			'post_status' => 'inherit'
+		);
+		$previous_uploads = get_children($args);
+		foreach ($previous_uploads as $pu)
+		{
+			$attachment_path = get_attached_file($pu->ID, TRUE);
+			
+			// check to see if this file has been uploaded to archive.org yet
+			$already_uploaded = False;
+			foreach ($archive_completed_uploads as $acu)
+			{
+				if (basename($acu) == basename($attachment_path)) $already_uploaded = True;
+			}
+			if (! $already_uploaded) sp_do_archive_upload($post_id, $attachment_path);
+		}
+	}
+	else
+	{
+		sp_do_archive_upload($post_id, $file_path);
+	}
+}
+
+function sp_register_options()
+{
+	register_setting('sp_options','sp_options'); // one group to store all options as an array
+}
+
+function sp_queue_archive_upload($post_id, $file_path)
+{
+	add_action('sp_do_archive_upload', 'sp_do_archive_upload', 10, 2);
+	wp_schedule_single_event(time()+3, 'sp_do_archive_upload', array($post_id, $file_path));
+}
+
+function sp_do_archive_upload($post_id, $file_path)
+{
+	if (empty($file_path)) return;
+	
+	ini_set('max_execution_time', 60*60);
+	add_post_meta($post_id, 'sp_archive_uploading', $file_path);
+	$sermon_words = sp_get_sermon_words();
+	$options = get_option('sp_options');
+
+	$url = get_bloginfo('url');
+	$domain = preg_replace('#https?://#','', $url);
+	$domain = preg_replace('#/.*#','', $domain);
+	$series_id = get_post_meta($post_id, 'sermon_series', TRUE);
+	if (empty($series_id)) $series_name = $sermon_words['singular'];
+	else
+	{
+		$series_post = get_post($series_id);
+		$series_name = $series_post->post_name;
+	}
+	$sermon_post = get_post($post_id);
+	$sermon_name = $sermon_post->post_name;
+
+
+	// first we check to see if an identifier is already set in the post metadata
+	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
+	if (empty($identifier))
+	{
+		// no identifier is set, so we need to generate one and hope it is unique
+		// identifier pattern looks like this blog_domain.series_slug.post_slug
+		// identifiers are S3 buckets so they must be lowercase letters, numbers, and periods
+		$identifier = $domain . '--' . $series_name . '--' . $sermon_name;
+		$identifier = strtolower($identifier);
+		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
+	}
+	// now we compute all important archive.org fields
+	$archive_server = 'http://s3.us.archive.org';
+	$metadata = Array(
+		'collection'=>$options['archive_collection'],
+		'creator'=>$options['archive_creator'],
+		'subject'=>$options['archive_keywords'],
+		'license'=>$options['archive_license'],
+		'description'=>apply_filters('the_content', $sermon_post->post_content),
+		'title'=>$series_post->post_title . ': ' . $sermon_post->post_title,
+		'date'=>$sermon_post->post_date,
+		'mediatype'=>'movies'
+		);	
+	
+	$accesskey = $options['archive_access_key'];
+	$secretkey = $options['archive_secret_key'];
+
+	$file = fopen($file_path, 'r');
+	$filesize = filesize($file_path);
+
+
+	// now we execute the s3 commands to upload this file
+	$curl_basic_headers = Array("authorization: LOW $accesskey:$secretkey", 'Content-Length:' . $filesize);
+	$curl_bucket_create_headers = Array('x-archive-auto-make-bucket:1');
+	$curl_metadata_headers = Array();
+	foreach($metadata as $key=>$value)
+	{
+		$curl_metadata_headers[] = sprintf("x-archive-meta-%s:uri(%s)", $key, rawurlencode($value));
+	}
+	
+	$archive_endpoint = $archive_server . '/' . $identifier . '/' . urlencode(basename($file_path));
+	
+	$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers, $curl_bucket_create_headers);
+	sp_debug('attempting to start upload');
+	sp_debug($curl_headers);
+	sp_debug($archive_endpoint);
+	
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+	curl_setopt($ch, CURLINFO_HEADER_OUT, true);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+	curl_setopt($ch, CURLOPT_HEADER, true);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $curl_headers);
+	curl_setopt($ch, CURLOPT_PUT, True);
+	curl_setopt($ch, CURLOPT_INFILE, $file);
+	curl_setopt($ch, CURLOPT_INFILESIZE, $filesize);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, True);
+	curl_setopt($ch, CURLOPT_VERBOSE, True);
+	curl_setopt($ch, CURLOPT_URL, $archive_endpoint);
+	$response = curl_exec($ch);
+	sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
+	curl_close($ch);
+
+	$count = 1;
+	if (strpos($response, 'BucketAlreadyExists') !== False)
+	{
+		sp_debug('trying to submit again');
+		$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers);
+		sp_debug($curl_headers);
+		$ch = curl_init();
+		curl_setopt($ch, CURLINFO_HEADER_OUT, true);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+		curl_setopt($ch, CURLOPT_HEADER, true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $curl_headers);
+		curl_setopt($ch, CURLOPT_PUT, True);
+		curl_setopt($ch, CURLOPT_INFILE, $file);
+		curl_setopt($ch, CURLOPT_INFILESIZE, $filesize);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, True);
+		curl_setopt($ch, CURLOPT_VERBOSE, True);
+		curl_setopt($ch, CURLOPT_URL, $archive_endpoint);
+		$response = curl_exec($ch);
+		sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
+		curl_close($ch);
+	}
+	sp_debug($response);
+	
+	delete_post_meta($post_id, 'sp_archive_uploading', $file_path);
+		
+	if (! curl_errno() )
+	{
+		$archive_item = "http://archive.org/details/" . $identifier;
+		$archive_file = "http://archive.org/download/" . $identifier . '/' . urlencode(basename($file_path));
+	
+		print "<li><a href=\"$archive_item\">$archive_item</a>";
+		print "<li><a href=\"$archive_file\">$archive_file</a>";
+
+		// now we add the post metadata that is needed
+		add_post_meta($post_id, 'sp_archive_identifier', $identifier, True) || update_post_meta($post_id, 'sp_archive_identifier', $identifier);
+		add_post_meta($post_id, 'sp_archive_item', $archive_item, True) || update_post_meta($post_id, 'sp_archive_item', $archive_item);
+		
+		// is this file already in the post metadata
+		$uploaded_files = get_post_meta($post_id, 'sp_archive_uploaded_file');
+		sp_debug($uploaded_files);
+		if (! in_array($archive_file, $uploaded_files))
+			add_post_meta($post_id, 'sp_archive_uploaded_file', $archive_file);
+	}
+
+}
+
 ?>

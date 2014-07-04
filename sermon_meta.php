@@ -1,16 +1,14 @@
 <?php
 
-define('MY_WORDPRESS_FOLDER',$_SERVER['DOCUMENT_ROOT']);
-define('MY_PLUGIN_FOLDER', plugin_dir_path( __FILE__ ));
+// define('SP_MY_WORDPRESS_FOLDER',$_SERVER['DOCUMENT_ROOT']);
+// define('SP_MY_PLUGIN_FOLDER', plugin_dir_path( __FILE__ ));
 
 add_action('admin_init','sp_sermon_meta_init');
 function sp_sermon_meta_init()
 {
-	// review the function reference for parameter details
-	// http://codex.wordpress.org/Function_Reference/wp_enqueue_script
-	// http://codex.wordpress.org/Function_Reference/wp_enqueue_style
-
-	//wp_enqueue_style('sermon_meta_css', MY_PLUGIN_FOLDER . 'css/sermon_meta.css');
+	$sermon_words = sp_get_sermon_words();
+	$singular = $sermon_words['singular'];
+	$plural = $sermon_words['plural'];
 
 	// review the function reference for parameter details
 	// http://codex.wordpress.org/Function_Reference/add_meta_box
@@ -18,19 +16,21 @@ function sp_sermon_meta_init()
 	// add a meta box for each of the wordpress page types: posts and pages
 	foreach (array('sp_sermon') as $type)
 	{
-		add_meta_box('sp_sermon_series_meta', 'Sermon Series', 'sp_sermon_series_meta_setup', $type, 'side', 'high');
-		add_meta_box('sp_sermon_media_meta', 'Sermon Media', 'sp_sermon_media_meta_setup', $type, 'side', 'high');
+		add_meta_box('sp_sermon_series_meta', sprintf('%s Series', ucwords($singular)), 'sp_sermon_series_meta_setup', $type, 'side', 'high');
+		add_meta_box('sp_sermon_media_meta', sprintf('%s Media', ucwords($singular)), 'sp_sermon_media_meta_setup', $type, 'side', 'high');
 	}
 
 	// add podcasting meta box to sermon pages if podcasting plugin is installed;
-	if (is_plugin_active('podcasting/podcasting.php'))
+	if (is_plugin_active('podcasting/podcasting.php') || defined('PODCASTING_VERSION'))
 	{
 		global $podcasting_metabox;
 		add_meta_box('podcasting', 'Podcasting', array($podcasting_metabox, 'editForm'), 'sp_sermon', 'normal');
 	}
-	
+
 	// add a callback function to save any data a user enters in
 	add_action('save_post','sp_sermon_meta_save');
+	
+	add_action('admin_footer', 'sp_upload_button_handler');
 }
 
 
@@ -65,17 +65,16 @@ function sp_sermon_series_meta_setup()
 }
 
 function sp_sermon_media_meta_setup()
-{
+{	
 	$max_upload = (int)(ini_get('upload_max_filesize'));
 	$max_post = (int)(ini_get('post_max_size'));
 	//$memory_limit = (int)(ini_get('memory_limit'));
 	$upload_mb = min($max_upload, $max_post);
 
-	// wp_nonce_field(plugin_basename(__FILE__), 'sp_sermon_media_nonce');
-  global $post;
-  $previous_uploads = array();
-  if ($post->ID)
-  {
+	global $post;
+	$previous_uploads = array();
+	if ($post->ID)
+	{
 		$args = array(
 			'post_parent' => $post->ID,
 			'post_type' => 'attachment',
@@ -96,7 +95,7 @@ function sp_sermon_media_meta_setup()
 		foreach ($previous_uploads as $pu)
 		{
 			$attachment_name = basename (get_attached_file($pu->ID, TRUE));
-			
+
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
 			$html .= '<tr>';
@@ -118,8 +117,57 @@ function sp_sermon_media_meta_setup()
 	$html .= '</select>';
 	$html .= '<input type="file" id="sp_sermon_media" name="sp_sermon_media" value="" size="25">';
 
+	// check to see if archive.org uploading is enabled
+	$options = get_option('sp_options');
+	if($options['send_to_archive'])
+	{
+		$html .= "<p>Media files uploaded through here will be sent to the <span class=\"collection_name\">" . $options['archive_collection'] . "</span> collection at the Internet Archive.";
+	}
+
+	//check to see if this media has been sent to archive.org already
+	$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
+	if (! empty($identifier) )
+	{
+		$html .= "<p>Files from this post can be accessed here: <a href=\"http://archive.org/details/$identifier\">$identifier</a>";
+	}
+	
+	$html .= '<br /><button class="button button-primary" id="sp-button-upload">Send to Archive.org</button>';
 	echo $html;
 }
+
+function sp_upload_button_handler()
+{
+	?>
+	
+	<script type="text/javascript">
+	// sp_upload_button_handler
+	
+	jQuery(document).ready(function($){
+		var data = {
+			'action': 'sp_upload',
+			'post_id': <?php echo get_the_ID(); ?>,
+			'whatever': 1234
+		};
+		
+		$('#sp-button-upload').click(function(e){
+			
+			alert
+			e.preventDefault();
+			console.log('button clicked');
+			
+			// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
+			$.post(ajaxurl, data, function(response) {
+				console.log(response);
+				alert('Got this from the server: ' + response);
+			});			
+		});
+	});
+	
+	</script>
+	
+	<?php
+}
+
 
 function sp_sermon_meta_save($post_id)
 {
@@ -195,7 +243,7 @@ function sp_sermon_meta_save($post_id)
 	{
 
 		// Setup the array of supported file types.
-		$supported_types = array('application/pdf','video/mp4','video/ogg','video/webm','audio/mp3','audio/mpeg','audio/ogg');
+		$supported_types = array('application/pdf','video/mp4','video/quicktime','video/ogg','video/webm','audio/mp3','audio/mpeg','audio/ogg');
 
 		// Get the file type of the upload
 		// $arr_file_type = wp_check_filetype(basename($_FILES['sp_sermon_media']['name']));
@@ -209,10 +257,7 @@ function sp_sermon_meta_save($post_id)
 		{
 
 			// Use the WordPress API to upload the file
-			// $upload = wp_upload_bits($_FILES['sp_sermon_media']['name'], null, file_get_contents($_FILES['sp_sermon_media']['tmp_name']));
-
 			$upload = wp_handle_upload($_FILES['sp_sermon_media'], array('test_form'=>false));
-			// $upload = media_handle_upload($_FILES['sp_sermon_media'], $post_id, array(), array('test_form'=>false));
 
 			if(isset($upload['error']) && $upload['error'] != 0)
 			{
@@ -220,6 +265,12 @@ function sp_sermon_meta_save($post_id)
 			}
 			else
 			{
+				// the file was uploaded successfully
+				// queue the archive.org upload if needed
+				$options = get_option('sp_options');
+				if (! empty($options['archive_upload']) && $options['archive_upload'] == '1') sp_queue_archive_upload($post->ID, $upload['file']);
+
+
 				// add an attachment
 				$attachment = array(
 				'guid'           => $upload['url'],
@@ -259,7 +310,7 @@ function sp_sermon_meta_save($post_id)
 		}
 		else
 		{
-			wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed as a sermon media file.");
+			wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed as a media/PDF file.");
 		} // end if/else
 	} // end if
 	return $post_id;

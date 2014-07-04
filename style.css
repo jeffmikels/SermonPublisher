@@ -4,12 +4,14 @@
 .sermon-date {text-transform:uppercase;color:#777;font-size:.8em;}
 .sermon h3 {margin:0;}
 .fullwidth {width:100%; height:auto;}
-.download-links {border: 1px solid black; border-left: 0px; border-right:0px;margin:6px 0px;}
+.download-links {border: 1px solid black; border-left: 0px; border-right:0px;margin:6px 0px;padding-left:3px;padding-right:3px;}
 .download-links a{display:inline-block;padding:6px;border-radius:3px;background-color:rgba(200,200,200,.3);}
 .download-links a:hover {background-color:rgba(200,200,200,.8);}
 .media-player-title {text-transform:uppercase;opacity:.6;}
 
-.widget .sp_thumb {width:100%;height:auto;}
+.SeriesInfoWidget { margin-top:10px; margin-bottom:10px; }
+.SeriesInfoWidget .sp_thumb {width:100%;height:auto;}
+.SeriesInfoWidget .sp_caption {font-size:.9em;background:rgba(0,0,0,.2);padding:6px;}
 
 
 .featured-series {position:relative;margin-bottom:20px;}
