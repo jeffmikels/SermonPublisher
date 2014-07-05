@@ -131,7 +131,14 @@ function sp_sermon_media_meta_setup()
 		$html .= "<p>Files from this post can be accessed here: <a href=\"http://archive.org/details/$identifier\">$identifier</a>";
 	}
 	
-	$html .= '<br /><button class="button button-primary" id="sp-button-upload">Send to Archive.org</button>';
+	if ($post->post_status == 'publish')
+	{
+		$html .= '<div id="sp-archive-submit-button-container">';
+		$html .= '<div><button class="button button-primary" id="sp-button-upload" style="width:100%;">Upload all files to archive.org</button></div>';
+		$html .= '<div>&nbsp</div>';
+		$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Transfer Local to Archive.org</button></div>';
+		$html .= '<div class="sp-warning" style="display:none;"><span class="spinner">&nbsp;</span>Sending files to Archive.org. Do not close this browser window until the uploads are done.</div></div>';
+	}
 	echo $html;
 }
 
@@ -146,19 +153,65 @@ function sp_upload_button_handler()
 		var data = {
 			'action': 'sp_upload',
 			'post_id': <?php echo get_the_ID(); ?>,
-			'whatever': 1234
 		};
 		
-		$('#sp-button-upload').click(function(e){
-			
-			alert
+		$('#sp-button-remove-local').click(function(e)		
+		{
 			e.preventDefault();
-			console.log('button clicked');
+			if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
+			
+			// trigger the remove_local action
+			data.remove_local = 1;
+			
+			elem = $(this);
+			$('.button').addClass('disabled');
+			$('#sp-archive-submit-button-container .spinner').css('display','inline');
+			$('#sp-archive-submit-button-container .sp-warning').slideDown();			
+			
+			$.ajax({
+				url: ajaxurl,
+				data: data,
+				method: 'POST',
+				success: function(response){
+					console.log(response);
+				},
+				complete: function(){
+					$('.button').removeClass('disabled');
+					$('#sp-archive-submit-button-container .spinner').css('display','');
+					$('#sp-archive-submit-button-container .sp-warning').html('reloading page');
+					document.location.reload();
+				}
+			});
+		});
+		
+		$('#sp-button-upload').click(function(e)
+		{
+			
+			e.preventDefault();
+			if ( ! confirm('If you have unsaved changes, you should hit CANCEL now and hit the "Update" button or they won\'t get reflected in the archive.org item.\n\nIf you are ready to upload, click OK now.')) return false;
+			
+			elem = $(this)
+			$('.button').addClass('disabled');
+			$('#sp-archive-submit-button-container .spinner').css('display','inline');
+			$('#sp-archive-submit-button-container .sp-warning').slideDown();			
+			
 			
 			// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
-			$.post(ajaxurl, data, function(response) {
-				console.log(response);
-				alert('Got this from the server: ' + response);
+			$.ajax({
+				url: ajaxurl,
+				data: data,
+				method: 'POST',
+				success: function(response)
+				{
+					console.log(response);
+				},
+				complete: function()
+				{
+					$('.button').removeClass('disabled');
+					$('#sp-archive-submit-button-container .spinner').css('display','');
+					$('#sp-archive-submit-button-container .sp-warning').slideUp()
+					// document.location.reload();
+				}
 			});			
 		});
 	});

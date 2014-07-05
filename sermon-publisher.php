@@ -605,6 +605,7 @@ function sp_add_styles()
 	print '<link rel="stylesheet" id="sp_sermon_publisher_css" href="'.plugins_url('style.css', __FILE__).'" type="text/css" />'."\n";
 }
 add_action('wp_head', 'sp_add_styles');
+add_action('admin_head', 'sp_add_styles');
 
 
 // GENERAL HELPER FUNCTIONS
@@ -809,8 +810,10 @@ add_action( 'wp_ajax_sp_upload', 'sp_ajax_upload_listener' );
 function sp_ajax_upload_listener()
 {
 	$post_id = $_POST['post_id'];
-	$archive_completed_uploads = get_post_meta('sp_archive_uploaded_file');
+	$remove_local = isset($_POST['remove_local']) && $_POST['remove_local'];
+	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
 	
+	// make sure all specified files are uploaded to archive.org
 	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
 	if ($file_path == '')
 	{
@@ -838,6 +841,59 @@ function sp_ajax_upload_listener()
 	else
 	{
 		sp_do_archive_upload($post_id, $file_path);
+	}
+	if ($remove_local) sp_remove_local_files($post_id);
+}
+
+// remove local files that exist on archive.org
+// re-link local enclosures to remote files
+function sp_remove_local_files($post_id)
+{
+	sp_debug('sp_remove_local_files');
+	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
+	$args = array(
+		'post_parent' => $post_id,
+		'post_type' => 'attachment',
+		'post_status' => 'inherit'
+	);
+	$previous_uploads = get_children($args);
+	
+	foreach ($archive_completed_uploads as $acu)
+	{
+		// check to see if this actually exists on archive.org
+		if (sp_url_exists($acu))
+		{
+			//change the local enclosures to refer to this file instead of the local file.
+			$enclosures = get_post_meta($post_id, 'enclosure');
+			foreach ($enclosures as $oldenc)
+			{
+				sp_debug($oldenc);
+				# normalize line endings
+				$oldenc = preg_replace("/\r\n/", "\n", $oldenc);
+				$encdata = explode("\n", $oldenc);
+				$oldurl = $encdata[0];
+				
+				// does this enclosure go with this archive.org file?
+				// if not, move on to the next enclosure
+				if (basename($oldurl) != basename($acu)) continue;
+				
+				// this enclosure url will be replaced by the archive.org url
+				$encdata[0] = $acu;
+				$newenc = implode("\n", $encdata);
+				sp_debug($newenc);
+				
+				// replace the enclosure
+				delete_post_meta($post_id, 'enclosure', $oldenc);
+				add_post_meta($post_id, 'enclosure', $newenc);
+				
+				// run through all attachments to remove the one which matches $oldurl
+				foreach ($previous_uploads as $pu)
+				{
+					if (basename(wp_get_attachment_url($pu->ID)) == basename($acu))
+						wp_delete_attachment($pu->ID, True);
+				}
+			}
+		}
 	}
 }
 
@@ -872,11 +928,10 @@ function sp_do_archive_upload($post_id, $file_path)
 		$series_name = $series_post->post_name;
 	}
 	$sermon_post = get_post($post_id);
-	$sermon_name = $sermon_post->post_name;
-
+	$sermon_name = $sermon_post->post_name;	
 
 	// first we check to see if an identifier is already set in the post metadata
-	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
+	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);	
 	if (empty($identifier))
 	{
 		// no identifier is set, so we need to generate one and hope it is unique
@@ -886,6 +941,7 @@ function sp_do_archive_upload($post_id, $file_path)
 		$identifier = strtolower($identifier);
 		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
 	}
+	
 	// now we compute all important archive.org fields
 	$archive_server = 'http://s3.us.archive.org';
 	$metadata = Array(
