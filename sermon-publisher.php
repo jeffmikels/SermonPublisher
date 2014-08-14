@@ -14,6 +14,9 @@ Author URI: http://jeff.mikels.cc
 	implement admin options page for setting alternate upload locations like S3 servers, etc.
 */
 
+define('SP_DO_LOG',0);
+define('SP_LOG_FILE', dirname(__FILE__) . '/sp_log.log');
+
 
 /** Add new image sizes */
 add_image_size( 'sp_banner', 1040, 400, TRUE );
@@ -626,6 +629,14 @@ function sp_debug($s)
 	print "<pre>";
 	print_r($s);
 	print "</pre>";
+	if (SP_DO_LOG) sp_log($s);
+}
+
+function sp_log($s)
+{
+	$h = fopen(SP_LOG_FILE, 'a');
+	fwrite($h, print_r($s, 1) . "\n");
+	fclose($h);
 }
 
 
@@ -864,35 +875,39 @@ function sp_remove_local_files($post_id)
 		if (sp_url_exists($acu))
 		{
 			//change the local enclosures to refer to this file instead of the local file.
-			$enclosures = get_post_meta($post_id, 'enclosure');
-			foreach ($enclosures as $oldenc)
+			foreach (array('enclosure','download') as $key)
 			{
-				sp_debug($oldenc);
-				# normalize line endings
-				$oldenc = preg_replace("/\r\n/", "\n", $oldenc);
-				$encdata = explode("\n", $oldenc);
-				$oldurl = $encdata[0];
+				$enclosures = get_post_meta($post_id, $key);
 				
-				// does this enclosure go with this archive.org file?
-				// if not, move on to the next enclosure
-				if (basename($oldurl) != basename($acu)) continue;
-				
-				// this enclosure url will be replaced by the archive.org url
-				$encdata[0] = $acu;
-				$newenc = implode("\n", $encdata);
-				sp_debug($newenc);
-				
-				// replace the enclosure
-				delete_post_meta($post_id, 'enclosure', $oldenc);
-				add_post_meta($post_id, 'enclosure', $newenc);
-				
-				// run through all attachments to remove the one which matches $oldurl
-				foreach ($previous_uploads as $pu)
+				foreach ($enclosures as $oldenc)
 				{
-					if (basename(wp_get_attachment_url($pu->ID)) == basename($acu))
-						wp_delete_attachment($pu->ID, True);
+					sp_debug($oldenc);
+					# normalize line endings
+					$oldenc_normalized = preg_replace("/\r\n/", "\n", $oldenc);
+					$encdata = explode("\n", $oldenc_normalized);
+					$oldurl = $encdata[0];
+				
+					// does this enclosure go with this archive.org file?
+					// if not, move on to the next enclosure
+					if (basename($oldurl) != basename($acu)) continue;
+				
+					// this enclosure url will be replaced by the archive.org url
+					$encdata[0] = $acu;
+					$newenc = implode("\n", $encdata);
+					sp_debug($newenc);
+				
+					// replace the enclosure
+					delete_post_meta($post_id, $key, $oldenc);
+					add_post_meta($post_id, $key, $newenc);
+				
+					// run through all attachments to remove the one which matches $oldurl
+					foreach ($previous_uploads as $pu)
+					{
+						if (basename(wp_get_attachment_url($pu->ID)) == $oldurl)
+							wp_delete_attachment($pu->ID, True);
+					}
 				}
-			}
+			}			
 		}
 	}
 }
@@ -975,7 +990,9 @@ function sp_do_archive_upload($post_id, $file_path)
 	
 	$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers, $curl_bucket_create_headers);
 	sp_debug('attempting to start upload');
+	sp_debug('CURL HEADERS:');
 	sp_debug($curl_headers);
+	sp_debug('ARCHIVE_ENDPOINT');
 	sp_debug($archive_endpoint);
 	
 	$ch = curl_init();
@@ -990,9 +1007,10 @@ function sp_do_archive_upload($post_id, $file_path)
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, True);
 	curl_setopt($ch, CURLOPT_VERBOSE, True);
 	curl_setopt($ch, CURLOPT_URL, $archive_endpoint);
+	sp_debug('FIRST EXEC');
 	$response = curl_exec($ch);
 	sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
-	curl_close($ch);
+	sp_debug($response);
 
 	$count = 1;
 	if (strpos($response, 'BucketAlreadyExists') !== False)
@@ -1013,14 +1031,20 @@ function sp_do_archive_upload($post_id, $file_path)
 		curl_setopt($ch, CURLOPT_VERBOSE, True);
 		curl_setopt($ch, CURLOPT_URL, $archive_endpoint);
 		$response = curl_exec($ch);
+		sp_debug('EXEC AGAIN');
 		sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
-		curl_close($ch);
 	}
+	sp_debug('FINAL CURL RESPONSE');
 	sp_debug($response);
 	
 	delete_post_meta($post_id, 'sp_archive_uploading', $file_path);
 		
-	if (! curl_errno() )
+	if (curl_errno($ch) )
+	{
+		sp_debug('CURL ERROR');
+		sp_debug(curl_error($ch));
+	}
+	else
 	{
 		$archive_item = "http://archive.org/details/" . $identifier;
 		$archive_file = "http://archive.org/download/" . $identifier . '/' . urlencode(basename($file_path));
@@ -1034,10 +1058,10 @@ function sp_do_archive_upload($post_id, $file_path)
 		
 		// is this file already in the post metadata
 		$uploaded_files = get_post_meta($post_id, 'sp_archive_uploaded_file');
-		sp_debug($uploaded_files);
 		if (! in_array($archive_file, $uploaded_files))
 			add_post_meta($post_id, 'sp_archive_uploaded_file', $archive_file);
 	}
+	curl_close($ch);
 
 }
 

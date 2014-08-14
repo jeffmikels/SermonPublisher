@@ -13,8 +13,12 @@
 .SeriesInfoWidget .sp_thumb {width:100%;height:auto;}
 .SeriesInfoWidget .sp_caption {font-size:.9em;background:rgba(0,0,0,.2);padding:6px;}
 
+.sermon-media-table {font-size:.8em;width:100%;}
 .sp-warning {color:red;font-weight:bold;background-color:#ffaaaa;padding:4px;margin-top:5px;}
-
+.sp-media-title {}
+.sp-media-purpose {font-size:.8em;padding:1px 2px;text-transform:uppercase;background:#333;color:white;font-weight:bold;}
+.sp-collection-name {font-weight:bold;}
+.sp-archive-link {text-align:center;background-color:#eee;font-weight:bold;}
 
 .featured-series {position:relative;margin-bottom:20px;}
 .series-gallery-item {position:relative;}

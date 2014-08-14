@@ -84,30 +84,65 @@ function sp_sermon_media_meta_setup()
 	}
 	$upload_purposes = array('video','audio','notes','manuscript','slides', 'other');
 	$html = '';
-	$html .= '<p class="description">Previously uploaded files</p>';
+	$html .= '<p class="description">Locally Hosted Files</p>';
 
 	if (! $previous_uploads) $html .= "<p>NONE</p>";
 	else
 	{
+		// we will compare to the files already stored in custom fields
+		// so grab them now
+		$specified_downloads = get_post_meta($post->ID, 'download');
+		$specified_enclosures = get_post_meta($post->ID, 'enclosure');
+		
 		$html .= '<div class="sp_previous_uploads">';
-		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th></tr>';
+		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th><th>PURPOSE</th></tr>';
 
 		foreach ($previous_uploads as $pu)
 		{
-			$attachment_name = basename (get_attached_file($pu->ID, TRUE));
+			$attachment_path = get_attached_file($pu->ID, TRUE);
+			$attachment_url = wp_get_attachment_url($pu->ID);
+						
+			$attachment_name = basename ($attachment_path);			
+			$attachment_purpose = 'NONE';
+			
+			foreach ($specified_downloads as $item)
+			{
+				$item = str_replace("\r\n","\n", $item);
+				$item_data = explode("\n", $item);
+				$item_url = $item_data[0];
+				if ($item_url == $attachment_url)
+				{
+					$attachment_purpose = $item_data[1] ? $item_data[1] : 'NONE';
+				}
+			}
+			foreach ($specified_enclosures as $item)
+			{
+				$item = str_replace("\r\n","\n", $item);
+				$item_data = explode("\n", $item);
+				$item_url = $item_data[0];
+				$item_podcast_values = unserialize($item_data[3]);
+				if ($item_url == $attachment_url)
+				{
+					$attachment_purpose = $item_podcast_values['format'] ? $item_podcast_values['format'] : 'NONE';
+				}
+				
+			}
+			
+			
 
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
 			$html .= '<tr>';
 			$html .= '<td><input name="sp_media_delete[' . $pu->ID . ']" value="yes" type="checkbox" /></td>';
-			$html .= '<td><span title="'.$attachment_name.'">' . $attachment_shortname . '</span></td>';
+			$html .= '<td><span class="sp-media-name" title="'.$attachment_name.'">' . $attachment_shortname . '</span></td>';
+			$html .= '<td><span class="sp-media-purpose">' . $attachment_purpose . '</span></td>';
 			$html .= '</tr>';
 		}
 		$html .= '</table>';
 		$html .= '</div>';
 	}
 	$html .= '<hr />';
-	$html .= '<p>You may upload new audio, video, or pdf files up to '.$upload_mb.'MB in size.</p>';
+	$html .= '<h4>Upload New Files</h4><p class="description">Upload audio, video, or pdf files <strong>up to '.$upload_mb.'MB</strong> in size.</p>';
 	$html .= '<select name="sp_media_purpose">';
 	$html .= '<option value="other">-- Describe Your Upload</option>';
 	foreach ($upload_purposes as $purpose)
@@ -115,29 +150,43 @@ function sp_sermon_media_meta_setup()
 		$html .= '<option value="'.$purpose.'">'.$purpose.'</option>';
 	}
 	$html .= '</select>';
-	$html .= '<input type="file" id="sp_sermon_media" name="sp_sermon_media" value="" size="25">';
+	$html .= '<input class="" type="file" id="sp_sermon_media" name="sp_sermon_media" value="" size="25">';
+	$html .= '<div><small style="color:red;"><strong>NOTE:</strong> File uploads and/or deletions do not take place until this post is saved, updated, or published.</small></div><hr />';
 
 	// check to see if archive.org uploading is enabled
 	$options = get_option('sp_options');
-	if($options['send_to_archive'])
+	if($options['send_to_archive'] && $previous_uploads)
 	{
-		$html .= "<p>Media files uploaded through here will be sent to the <span class=\"collection_name\">" . $options['archive_collection'] . "</span> collection at the Internet Archive.";
-	}
-
-	//check to see if this media has been sent to archive.org already
-	$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
-	if (! empty($identifier) )
-	{
-		$html .= "<p>Files from this post can be accessed here: <a href=\"http://archive.org/details/$identifier\">$identifier</a>";
-	}
+		$html .= "<h4>archive.org posting</h4>";
+		
+		//check to see if this media has been sent to archive.org already
+		$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
+		$upload_button_text = 'Upload Attached Files to Archive.org';
+		if (! empty($identifier) )
+		{
+			$html .= "<p class=\"sp-archive-link\"><a href=\"http://archive.org/details/$identifier\">Click here to view these files at archive.org</a></p>";
+			$upload_button_text = 'Re-Upload Files to Archive.org';
+		}
+		else
+		{
+			$html .= "<p>The above media files may be sent to the <span class=\"sp-collection-name collection_name\">" . $options['archive_collection'] . "</span> collection at the Internet Archive.";
+		}
 	
-	if ($post->post_status == 'publish')
-	{
-		$html .= '<div id="sp-archive-submit-button-container">';
-		$html .= '<div><button class="button button-primary" id="sp-button-upload" style="width:100%;">Upload all files to archive.org</button></div>';
-		$html .= '<div>&nbsp</div>';
-		$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Transfer Local to Archive.org</button></div>';
-		$html .= '<div class="sp-warning" style="display:none;"><span class="spinner">&nbsp;</span>Sending files to Archive.org. Do not close this browser window until the uploads are done.</div></div>';
+		if ($post->post_status == 'publish' || $post->post_status == 'draft')
+		{
+			$html .= '<div id="sp-archive-submit-button-container">';
+			$html .= '<div><button class="button button-primary" id="sp-button-upload" style="width:100%;">'.$upload_button_text.'</button><br /><small>This button will send all the files attached to this post to archive.org. If successful, the page will reload, so make sure all changes have been saved before clicking this button.</small></div>';
+			$html .= '<div>&nbsp</div>';
+			if( ! empty($identifier))
+			{
+				$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Host Files from Archive.org</button><br /><small>This button will switch hosting from your site to archive.org and update the links here so they refer to the files there.</small></div>';			
+			}
+			$html .= '<div class="sp-warning" style="display:none;"><span class="spinner">&nbsp;</span>Sending files to Archive.org. Do not close this browser window until the uploads are done.</div></div>';
+		}
+		else
+		{
+			$html .= '<div id="sp-archive-submit-button-container">Once this post is saved, you will be able to transfer uploaded files to archive.org for hosting.</div>';
+		}
 	}
 	echo $html;
 }
@@ -175,11 +224,14 @@ function sp_upload_button_handler()
 				success: function(response){
 					console.log(response);
 				},
+				error: function(response){
+					console.log(response);
+				},
 				complete: function(){
 					$('.button').removeClass('disabled');
 					$('#sp-archive-submit-button-container .spinner').css('display','');
-					$('#sp-archive-submit-button-container .sp-warning').html('reloading page');
-					document.location.reload();
+					$('#sp-archive-submit-button-container .sp-warning').html('reloading page in 3 seconds');
+					setTimeout(function(){document.location.reload()}, 3000);
 				}
 			});
 		});
@@ -205,12 +257,16 @@ function sp_upload_button_handler()
 				{
 					console.log(response);
 				},
+				error: function(response)
+				{
+					console.log(response);
+				},
 				complete: function()
 				{
 					$('.button').removeClass('disabled');
 					$('#sp-archive-submit-button-container .spinner').css('display','');
-					$('#sp-archive-submit-button-container .sp-warning').slideUp()
-					// document.location.reload();
+					$('#sp-archive-submit-button-container .sp-warning').html('reloading page in 3 seconds');
+					setTimeout(function(){document.location.reload()}, 3000);
 				}
 			});			
 		});
