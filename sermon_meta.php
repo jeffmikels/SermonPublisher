@@ -29,7 +29,7 @@ function sp_sermon_meta_init()
 
 	// add a callback function to save any data a user enters in
 	add_action('save_post','sp_sermon_meta_save');
-	
+
 	add_action('admin_footer', 'sp_upload_button_handler');
 }
 
@@ -65,7 +65,7 @@ function sp_sermon_series_meta_setup()
 }
 
 function sp_sermon_media_meta_setup()
-{	
+{
 	$max_upload = (int)(ini_get('upload_max_filesize'));
 	$max_post = (int)(ini_get('post_max_size'));
 	//$memory_limit = (int)(ini_get('memory_limit'));
@@ -93,7 +93,7 @@ function sp_sermon_media_meta_setup()
 		// so grab them now
 		$specified_downloads = get_post_meta($post->ID, 'download');
 		$specified_enclosures = get_post_meta($post->ID, 'enclosure');
-		
+
 		$html .= '<div class="sp_previous_uploads">';
 		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th><th>PURPOSE</th></tr>';
 
@@ -101,10 +101,10 @@ function sp_sermon_media_meta_setup()
 		{
 			$attachment_path = get_attached_file($pu->ID, TRUE);
 			$attachment_url = wp_get_attachment_url($pu->ID);
-						
-			$attachment_name = basename ($attachment_path);			
+
+			$attachment_name = basename ($attachment_path);
 			$attachment_purpose = 'NONE';
-			
+
 			foreach ($specified_downloads as $item)
 			{
 				$item = str_replace("\r\n","\n", $item);
@@ -125,10 +125,10 @@ function sp_sermon_media_meta_setup()
 				{
 					$attachment_purpose = $item_podcast_values['format'] ? $item_podcast_values['format'] : 'NONE';
 				}
-				
+
 			}
-			
-			
+
+
 
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
@@ -158,7 +158,7 @@ function sp_sermon_media_meta_setup()
 	if($options['send_to_archive'] && $previous_uploads)
 	{
 		$html .= "<h4>archive.org posting</h4>";
-		
+
 		//check to see if this media has been sent to archive.org already
 		$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
 		$upload_button_text = 'Upload Attached Files to Archive.org';
@@ -171,7 +171,7 @@ function sp_sermon_media_meta_setup()
 		{
 			$html .= "<p>The above media files may be sent to the <span class=\"sp-collection-name collection_name\">" . $options['archive_collection'] . "</span> collection at the Internet Archive.";
 		}
-	
+
 		if ($post->post_status == 'publish' || $post->post_status == 'draft')
 		{
 			$html .= '<div id="sp-archive-submit-button-container">';
@@ -179,7 +179,7 @@ function sp_sermon_media_meta_setup()
 			$html .= '<div>&nbsp</div>';
 			if( ! empty($identifier))
 			{
-				$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Host Files from Archive.org</button><br /><small>This button will switch hosting from your site to archive.org and update the links here so they refer to the files there.</small></div>';			
+				$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Host Files from Archive.org</button><br /><small>This button will switch hosting from your site to archive.org and update the links here so they refer to the files there.</small></div>';
 			}
 			$html .= '<div class="sp-warning" style="display:none;"><span class="spinner">&nbsp;</span>Sending files to Archive.org. Do not close this browser window until the uploads are done.</div></div>';
 		}
@@ -194,29 +194,29 @@ function sp_sermon_media_meta_setup()
 function sp_upload_button_handler()
 {
 	?>
-	
+
 	<script type="text/javascript">
 	// sp_upload_button_handler
-	
+
 	jQuery(document).ready(function($){
 		var data = {
 			'action': 'sp_upload',
 			'post_id': <?php echo get_the_ID(); ?>,
 		};
-		
-		$('#sp-button-remove-local').click(function(e)		
+
+		$('#sp-button-remove-local').click(function(e)
 		{
 			e.preventDefault();
 			if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
-			
+
 			// trigger the remove_local action
 			data.remove_local = 1;
-			
+
 			elem = $(this);
 			$('.button').addClass('disabled');
 			$('#sp-archive-submit-button-container .spinner').css('display','inline');
-			$('#sp-archive-submit-button-container .sp-warning').slideDown();			
-			
+			$('#sp-archive-submit-button-container .sp-warning').slideDown();
+
 			$.ajax({
 				url: ajaxurl,
 				data: data,
@@ -235,19 +235,19 @@ function sp_upload_button_handler()
 				}
 			});
 		});
-		
+
 		$('#sp-button-upload').click(function(e)
 		{
-			
+
 			e.preventDefault();
 			if ( ! confirm('If you have unsaved changes, you should hit CANCEL now and hit the "Update" button or they won\'t get reflected in the archive.org item.\n\nIf you are ready to upload, click OK now.')) return false;
-			
+
 			elem = $(this)
 			$('.button').addClass('disabled');
 			$('#sp-archive-submit-button-container .spinner').css('display','inline');
-			$('#sp-archive-submit-button-container .sp-warning').slideDown();			
-			
-			
+			$('#sp-archive-submit-button-container .sp-warning').slideDown();
+
+
 			// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
 			$.ajax({
 				url: ajaxurl,
@@ -256,24 +256,25 @@ function sp_upload_button_handler()
 				success: function(response)
 				{
 					console.log(response);
+					$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page in 3 seconds');
+					// setTimeout(function(){document.location.reload()}, 3000);
 				},
 				error: function(response)
 				{
 					console.log(response);
+					$('#sp-archive-submit-button-container .sp-warning').html('Error');
 				},
 				complete: function()
 				{
 					$('.button').removeClass('disabled');
 					$('#sp-archive-submit-button-container .spinner').css('display','');
-					$('#sp-archive-submit-button-container .sp-warning').html('reloading page in 3 seconds');
-					setTimeout(function(){document.location.reload()}, 3000);
 				}
-			});			
+			});
 		});
 	});
-	
+
 	</script>
-	
+
 	<?php
 }
 

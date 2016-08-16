@@ -14,7 +14,7 @@ Author URI: http://jeff.mikels.cc
 	implement admin options page for setting alternate upload locations like S3 servers, etc.
 */
 
-define('SP_DO_LOG',0);
+define('SP_DO_LOG',1);
 define('SP_LOG_FILE', dirname(__FILE__) . '/sp_log.log');
 
 
@@ -97,20 +97,23 @@ include ("sermon_meta.php");
 
 
 // ADD A NEW SERIES INFO WIDGET
-class SeriesInfoWidget extends WP_Widget
+class SP_SeriesInfoWidget extends WP_Widget
 {
-	function SeriesInfoWidget()
+	public function __construct()
 	{
-		$widget_ops = array('classname' => 'SeriesInfoWidget', 'description' => 'Series information as a widget on series pages and sermon pages. Displays nothing otherwise.');
-		$this->WP_Widget('SeriesInfoWidget', 'Series Information and Thumbnail', $widget_ops);
+		$widget_ops = array('classname' => 'SP_SeriesInfoWidget', 'description' => 'Series information as a widget on series pages and sermon pages. Displays nothing otherwise.');
+		parent::__construct('SP_SeriesInfoWidget', 'Series Info and Thumbnail', $widget_ops);
 	}
 
 	function widget($args, $instance)
 	{
+
+
 		// check to see if this is a sermon or series page.
-		// if it is neither, don't output anything at all.
+		// if it is neither, output nothing at all.
 		if (! sp_is_sermon() and ! sp_is_series()) return;
 
+		// Widget Code Goes Here
 		extract($args, EXTR_SKIP);
 		global $post;
 
@@ -121,12 +124,10 @@ class SeriesInfoWidget extends WP_Widget
 		$thumbnail_size = 'sp_thumb';
 
 		echo $before_widget;
-		// echo '<div id="sp_series_info_widget"'
-
-		// Widget Code Goes Here
 
 		if (sp_is_sermon())
 		{
+			// on a sermon page, show information on the current series
 			$series_page_id = get_post_meta($post->ID, 'sermon_series', TRUE);
 			$series_page = get_post($series_page_id);
 			$series_permalink = get_permalink($series_page_id);
@@ -141,13 +142,15 @@ class SeriesInfoWidget extends WP_Widget
 			?>
 
 			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			<p class="sp_caption">This <?php echo $singular; ?> is part of a series called <a href="<?php print $series_permalink; ?>"><?php echo $series_page->post_title; ?></a>. There <?php echo $countval; ?> in this series.</p>
+			<p class="sp_caption">This <?php echo $singular; ?> is part of a series called <a href="<?php print $series_permalink; ?>" class="sp_series_link"><strong><?php echo $series_page->post_title; ?></strong></a>. There <?php echo $countval; ?> in this series.</p>
 
 			<?php
 		}
 
 		elseif (sp_is_series())
 		{
+			// on a series page, show the series statistics
+
 			$series_page_id = $post->ID;
 			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
 			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
@@ -160,16 +163,58 @@ class SeriesInfoWidget extends WP_Widget
 			?>
 
 			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.
+			<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
 
 			<?php
 		}
 
+		echo $after_widget;
+	}
+}
+add_action( 'widgets_init', function() {return register_widget("SP_SeriesInfoWidget"); });
+
+
+// ADD A NEW LATEST SERMON WIDGET
+class SP_LatestSermonWidget extends WP_Widget
+{
+	function __construct()
+	{
+		$widget_ops = array('classname' => 'SP_LatestSermonWidget', 'description' => 'Widget to display the most recent sermon with the link and graphic of its series.');
+		parent::__construct('SP_LatestSermonWidget', 'Latest Sermon', $widget_ops);
+	}
+
+	function widget($args, $instance)
+	{
+
+		extract($args, EXTR_SKIP);
+		global $post;
+
+		$sermon_words = sp_get_sermon_words();
+		$singular = $sermon_words['singular'];
+		$plural = $sermon_words['plural'];
+
+		$thumbnail_size = 'sp_thumb';
+
+		echo $before_widget;
+
+		// on other pages, show the most recent sermon
+		?>
+		<h4 class="widget-title widgettitle">Most Recent <?php echo $singular; ?></h4>
+
+		<?php
+		sp_most_recent_sermon();
+		/*?>
+
+		<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
+		<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
+
+
+		<?php*/
 
 		echo $after_widget;
 	}
 }
-add_action( 'widgets_init', function() {return register_widget("SeriesInfoWidget"); });
+add_action( 'widgets_init', function() {return register_widget("SP_LatestSermonWidget"); });
 
 
 // SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
@@ -366,7 +411,7 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	echo $before;
 	?>
 
-	<div id="most-recent-series">
+	<div class="most-recent-series">
 		<div class="featured-series">
 			<a href="<?php echo get_permalink($featured_series_id); ?>">
 				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
@@ -378,6 +423,40 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 				</div>
 			</a>
 		</div>
+	</div>
+
+	<?php
+	echo $after;
+	return $featured_series_id;
+
+}
+function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='')
+{
+	$featured_series = sp_get_featured_series();
+	$featured_series_id = $featured_series->ID;
+	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);
+	$most_recent = sp_get_most_recent_sermon();
+	echo $before;
+	?>
+
+	<div class="most-recent-series">
+		<div class="featured-series">
+			<a href="<?php echo get_permalink($featured_series_id); ?>">
+				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
+				<div class="featured-series-image-overlay">
+					<div class="featured-series-image-caption">
+						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+					</div>
+				</div>
+			</a>
+		</div>
+	</div>
+	<div class="most-recent-sermon">
+		<a href="<?php echo get_permalink($most_recent->ID); ?>">
+			<?php echo $most_recent->post_title; ?>
+		</a>
+		<br /><?php echo get_the_date(get_option( 'date_format' ), $most_recent->ID); ?>
 	</div>
 
 	<?php
@@ -563,20 +642,31 @@ function sp_get_sermons_by_series($series_page_id)
 	return get_posts($args);
 }
 
+function sp_get_sermon_series($sermon_id)
+{
+	$series_id = get_post_meta($sermon_id, 'sermon_series', TRUE);
+	if ($series_id)
+	{
+		return get_post($series_id);
+	}
+	return NULL;
+}
+function sp_get_most_recent_sermon()
+{
+	$sermons = get_posts( array ('post_type' => 'sp_sermon', 'numberposts'=>1) );
+	if (count($sermons) != 0) return $sermons[0];
+	return NULL;
+}
 
 function sp_get_featured_series()
 {
-	// returns the most recent series
 	// first, we grab the most recent 'sermon' post, and make that series the featured one
-	$most_recent = get_posts( array ('post_type' => 'sp_sermon', 'numberposts'=>1) );
-	if ( count($most_recent) != 0 )
+	// returns the most recent series
+	$most_recent = sp_get_most_recent_sermon();
+	if ( $most_recent )
 	{
-		$featured_series_id = get_post_meta($most_recent[0]->ID, 'sermon_series', TRUE);
-		if ($featured_series_id)
-		{
-			$featured_series = get_post($featured_series_id);
-			return $featured_series;
-		}
+		$sermon_id = $most_recent->ID;
+		return sp_get_sermon_series($sermon_id);
 	}
 	return get_posts( array ('post_type' => 'sp_series', 'numberposts'=>1) );
 }
@@ -823,7 +913,7 @@ function sp_ajax_upload_listener()
 	$post_id = $_POST['post_id'];
 	$remove_local = isset($_POST['remove_local']) && $_POST['remove_local'];
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
-	
+
 	// make sure all specified files are uploaded to archive.org
 	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
 	if ($file_path == '')
@@ -839,7 +929,7 @@ function sp_ajax_upload_listener()
 		foreach ($previous_uploads as $pu)
 		{
 			$attachment_path = get_attached_file($pu->ID, TRUE);
-			
+
 			// check to see if this file has been uploaded to archive.org yet
 			$already_uploaded = False;
 			foreach ($archive_completed_uploads as $acu)
@@ -868,7 +958,7 @@ function sp_remove_local_files($post_id)
 		'post_status' => 'inherit'
 	);
 	$previous_uploads = get_children($args);
-	
+
 	foreach ($archive_completed_uploads as $acu)
 	{
 		// check to see if this actually exists on archive.org
@@ -878,7 +968,7 @@ function sp_remove_local_files($post_id)
 			foreach (array('enclosure','download') as $key)
 			{
 				$enclosures = get_post_meta($post_id, $key);
-				
+
 				foreach ($enclosures as $oldenc)
 				{
 					sp_debug($oldenc);
@@ -886,20 +976,20 @@ function sp_remove_local_files($post_id)
 					$oldenc_normalized = preg_replace("/\r\n/", "\n", $oldenc);
 					$encdata = explode("\n", $oldenc_normalized);
 					$oldurl = $encdata[0];
-				
+
 					// does this enclosure go with this archive.org file?
 					// if not, move on to the next enclosure
 					if (basename($oldurl) != basename($acu)) continue;
-				
+
 					// this enclosure url will be replaced by the archive.org url
 					$encdata[0] = $acu;
 					$newenc = implode("\n", $encdata);
 					sp_debug($newenc);
-				
+
 					// replace the enclosure
 					delete_post_meta($post_id, $key, $oldenc);
 					add_post_meta($post_id, $key, $newenc);
-				
+
 					// run through all attachments to remove the one which matches $oldurl
 					foreach ($previous_uploads as $pu)
 					{
@@ -907,7 +997,7 @@ function sp_remove_local_files($post_id)
 							wp_delete_attachment($pu->ID, True);
 					}
 				}
-			}			
+			}
 		}
 	}
 }
@@ -926,7 +1016,7 @@ function sp_queue_archive_upload($post_id, $file_path)
 function sp_do_archive_upload($post_id, $file_path)
 {
 	if (empty($file_path)) return;
-	
+
 	ini_set('max_execution_time', 60*60);
 	add_post_meta($post_id, 'sp_archive_uploading', $file_path);
 	$sermon_words = sp_get_sermon_words();
@@ -943,10 +1033,10 @@ function sp_do_archive_upload($post_id, $file_path)
 		$series_name = $series_post->post_name;
 	}
 	$sermon_post = get_post($post_id);
-	$sermon_name = $sermon_post->post_name;	
+	$sermon_name = $sermon_post->post_name;
 
 	// first we check to see if an identifier is already set in the post metadata
-	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);	
+	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
 	if (empty($identifier))
 	{
 		// no identifier is set, so we need to generate one and hope it is unique
@@ -956,7 +1046,7 @@ function sp_do_archive_upload($post_id, $file_path)
 		$identifier = strtolower($identifier);
 		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
 	}
-	
+
 	// now we compute all important archive.org fields
 	$archive_server = 'http://s3.us.archive.org';
 	$metadata = Array(
@@ -968,8 +1058,8 @@ function sp_do_archive_upload($post_id, $file_path)
 		'title'=>$series_post->post_title . ': ' . $sermon_post->post_title,
 		'date'=>$sermon_post->post_date,
 		'mediatype'=>'movies'
-		);	
-	
+		);
+
 	$accesskey = $options['archive_access_key'];
 	$secretkey = $options['archive_secret_key'];
 
@@ -985,16 +1075,16 @@ function sp_do_archive_upload($post_id, $file_path)
 	{
 		$curl_metadata_headers[] = sprintf("x-archive-meta-%s:uri(%s)", $key, rawurlencode($value));
 	}
-	
+
 	$archive_endpoint = $archive_server . '/' . $identifier . '/' . urlencode(basename($file_path));
-	
+
 	$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers, $curl_bucket_create_headers);
 	sp_debug('attempting to start upload');
 	sp_debug('CURL HEADERS:');
 	sp_debug($curl_headers);
 	sp_debug('ARCHIVE_ENDPOINT');
 	sp_debug($archive_endpoint);
-	
+
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 	curl_setopt($ch, CURLINFO_HEADER_OUT, true);
@@ -1036,9 +1126,9 @@ function sp_do_archive_upload($post_id, $file_path)
 	}
 	sp_debug('FINAL CURL RESPONSE');
 	sp_debug($response);
-	
+
 	delete_post_meta($post_id, 'sp_archive_uploading', $file_path);
-		
+
 	if (curl_errno($ch) )
 	{
 		sp_debug('CURL ERROR');
@@ -1048,14 +1138,14 @@ function sp_do_archive_upload($post_id, $file_path)
 	{
 		$archive_item = "http://archive.org/details/" . $identifier;
 		$archive_file = "http://archive.org/download/" . $identifier . '/' . urlencode(basename($file_path));
-	
+
 		print "<li><a href=\"$archive_item\">$archive_item</a>";
 		print "<li><a href=\"$archive_file\">$archive_file</a>";
 
 		// now we add the post metadata that is needed
 		add_post_meta($post_id, 'sp_archive_identifier', $identifier, True) || update_post_meta($post_id, 'sp_archive_identifier', $identifier);
 		add_post_meta($post_id, 'sp_archive_item', $archive_item, True) || update_post_meta($post_id, 'sp_archive_item', $archive_item);
-		
+
 		// is this file already in the post metadata
 		$uploaded_files = get_post_meta($post_id, 'sp_archive_uploaded_file');
 		if (! in_array($archive_file, $uploaded_files))
