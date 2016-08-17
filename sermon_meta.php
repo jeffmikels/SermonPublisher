@@ -351,7 +351,6 @@ function sp_sermon_meta_save($post_id)
 	// Make sure the file array isn't empty
 	if(!empty($_FILES['sp_sermon_media']['name']))
 	{
-
 		// Setup the array of supported file types.
 		$supported_types = array('application/pdf','video/mp4','video/quicktime','video/ogg','video/webm','audio/mp3','audio/mpeg','audio/ogg');
 
@@ -400,7 +399,7 @@ function sp_sermon_meta_save($post_id)
 
 				$pdf_purposes = Array('manuscript','notes','slides');
 				$enclosure_purposes = Array('video','audio');
-
+				
 				if (in_array($purpose, $enclosure_purposes))
 				{
 					// the first three lines are used by wordpress in feed generation

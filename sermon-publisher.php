@@ -580,7 +580,7 @@ function sp_has_video()
 	{
 		foreach ($enclosures as $e)
 		{
-			$encdata = explode("\n",$enclosure);
+			$encdata = explode("\n",$e);
 			$url = $encdata[0];
 			if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
 		}

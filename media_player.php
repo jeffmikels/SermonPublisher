@@ -67,14 +67,14 @@ if ($media_items)
 	if ($display == 'block') $media_player_visible = TRUE;
 
 	array_multisort($media_items);
-	$default_item = $media_items['flash'];
+	$default_item = !empty($media_items['flash']) ? $media_items['flash'] : NULL;
 	$default_title = 'flash';
 	if ( ! $default_item ) {
-		$default_item = $media_items['mp4'];
+		$default_item = !empty($media_items['mp4']) ? $media_items['mp4'] : NULL;
 		$default_title = 'mp4';
 	}
 	if ( ! $default_item ) {
-		$default_item = $media_items['mp3'];
+		$default_item = !empty($media_items['mp3']) ? $media_items['mp3'] : NULL;
 		$default_title = 'mp3';
 	}
 
