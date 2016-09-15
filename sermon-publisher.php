@@ -251,7 +251,7 @@ function sp_add_sermons_to_feed($qv)
 add_filter('request', 'sp_add_sermons_to_feed');
 
 
-//add_action('loop_start', 'sp_series_archive');
+// unused function to hijack the series archive pages
 function sp_series_archive()
 {
 	global $wp_query;
@@ -294,7 +294,7 @@ function sp_series_archive()
 
 				<div class="series-item">
 				<a href="<?php the_permalink(); ?>">
-					<?php print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
+					<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
 				</a>
 				</div>
 
@@ -316,6 +316,8 @@ function sp_series_archive()
 	}
 	return;
 }
+// add_action('loop_start', 'sp_series_archive');
+
 
 // CONTENT MODIFICATION FILTER FUNCTIONS
 // SERIES MODIFICATIONS
@@ -494,7 +496,9 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 
 		<div class="series-gallery-item item-<?php echo $class; ?>">
 			<a href="<?php print get_permalink($series->ID); ?>" >
-				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
+				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
+				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+				</div>
 				<div class="series-gallery-item-image-overlay">
 					<div class="series-gallery-item-image-caption">
 						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
