@@ -96,6 +96,199 @@ add_action( 'init', 'sp_custom_post_types' );
 include ("sermon_meta.php");
 
 
+// SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
+
+// add related sermons to content on series pages
+function sp_series_content($content)
+{
+	if (! sp_is_series()) return $content;
+	$content = sp_add_sermons_in_series($content);
+	return $content;
+}
+add_filter('the_content', 'sp_series_content');
+
+// add media player to sermon pages
+function sp_sermon_content($content)
+{
+	if(! sp_is_sermon()) return $content;
+	$series_graphic = sp_add_series_graphic('');
+	$media_player = sp_add_media_player('',false);
+	$downloads = sp_add_downloads('');
+
+	return $series_graphic . $media_player . $downloads . $content;
+}
+add_filter('the_content', 'sp_sermon_content');
+
+// add sermon posts to feeds
+function sp_add_sermons_to_feed($qv)
+{
+	if (isset($qv['feed']) && !isset($qv['post_type']))
+	{
+		$qv['post_type'] = array('post', 'sp_sermon', 'sp_series', 'page');
+		//$qv['post_type']=get_post_types();
+	}
+	return $qv;
+}
+add_filter('request', 'sp_add_sermons_to_feed');
+
+
+// unused function to hijack the series archive pages
+function sp_series_archive()
+{
+	global $wp_query;
+	global $first_loop_done;
+	if (isset($first_loop_done) && $first_loop_done) return;
+	$first_loop_done = True;
+	//sp_debug($wp_query);
+	if (is_admin() || ! is_archive()) return;
+	if (isset($wp_query->query_vars['post_type']) && $wp_query->query_vars['post_type'] == 'sp_series')
+	{
+		// hijack the loop with our own series archive loop
+		$posts = $wp_query->posts;
+		$most_recent = $posts[0];
+		$the_rest = array_slice($posts,1);
+
+		// display the most recent series as if it were a single
+		$post = $most_recent;
+		setup_postdata($post);
+
+		?>
+
+			<div class="series most-recent">
+				<a href="<?php the_permalink(); ?>">
+					<?php print the_post_thumbnail('sp_poster',array('class' => 'fullwidth', 'title'=>get_the_title())); ?>
+					<div class="series-description">
+						<span class="series-title"><?php the_title(); ?></span>
+						<span class="series-excerpt"><?php the_excerpt(); ?></span>
+					</div>
+				</a>
+			</div>
+
+			<div class="series series-gallery">
+
+		<?php
+
+			foreach ($the_rest as $post)
+			{
+				setup_postdata($post);
+				?>
+
+				<div class="series-item">
+				<a href="<?php the_permalink(); ?>">
+					<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
+				</a>
+				</div>
+
+
+				<?php
+
+
+
+			}
+			$wp_query->posts = Array();
+
+		?>
+
+			</div>
+
+		<?php
+
+		return;
+	}
+	return;
+}
+// add_action('loop_start', 'sp_series_archive');
+
+
+// HELPER FUNCTIONS FOR CONTENT FILTERS
+// SERIES PAGE MODIFICATIONS
+function sp_add_sermons_in_series($content)
+{
+	$sermon_words = sp_get_sermon_words();
+	$singular = $sermon_words['singular'];
+	$plural = $sermon_words['plural'];
+
+	if (! sp_is_series()) return $content;
+	else
+	{
+		global $post;
+		$series_id = $post->ID;
+		$series_slug = $post->post_name;
+		$sermons = sp_get_sermons_by_series($series_id);
+
+		$sermons_html = '<div class="sermon-listing series-'.$series_slug.'">';
+		$sermons_html .= sprintf('<h2>%s in this Series</h2>', ucwords($plural));
+
+		if (count($sermons) > 0)
+		{
+			foreach($sermons as $sermon)
+			{
+				$slug = $sermon->post_name;
+				$id = $sermon->ID;
+				$title = $sermon->post_title;
+				$excerpt = $sermon->post_excerpt;
+				$permalink = get_permalink($id);
+				$date = date('M j, Y', strtotime($sermon->post_date));
+				$this_html = "\n\n";
+				$this_html .= '<div class="sermon sermon-'.$slug.'">';
+				$this_html .= '<a href="' . $permalink . '">';
+				$this_html .= '<div class="sermon-date">' . $date . '</div>';
+				$this_html .= '<h3>' . $title . '</h3>';
+				$this_html .= '<div class="sermon-excerpt">' . $excerpt . '</div>';
+				$this_html .= '</a></div>' . "\n\n";
+				$sermons_html .= $this_html;
+			}
+		}
+		else $sermons_html .= sprintf('NO %s HAVE YET BEEN POSTED TO THIS SERIES', strtoupper($plural));
+	}
+	return $content . $sermons_html;
+}
+
+// SERMON POST MODIFICATIONS
+function sp_add_series_graphic($content)
+{
+	if (! sp_is_sermon()) return $content;
+	if (has_post_thumbnail()) return $content;
+	if (sp_has_video()) return $content;
+
+	// if we made it this far, we want to grab the series graphic from the sermon series page
+	$series_page_id = get_post_meta(get_the_ID(), 'sermon_series', TRUE);
+	$series_thumbnail = get_the_post_thumbnail($series_page_id, 'sp_poster', array('class' => 'fullwidth'));
+	return $series_thumbnail . $content;
+}
+
+// add a downloads box on sermon posts
+function sp_add_downloads($content)
+{
+	$content = sp_make_download_links() . $content;
+	return $content;
+}
+
+// add media player to sermon posts
+function sp_add_media_player($content, $send_to_browser = TRUE)
+{
+	global $post;
+	if (!sp_is_sermon()) return $content;
+
+	if ($send_to_browser)
+	{
+		print "<!-- MEDIA PLAYER -->\n";
+		include "media_player.php";
+		print "\n<!-- END MEDIA PLAYER -->\n";
+		return $content;
+	}
+	else
+	{
+		ob_start();
+		include "media_player.php";
+		$result = ob_get_clean();
+		return $result . $content;
+	}
+}
+
+
+
+// WIDGETS
 // ADD A NEW SERIES INFO WIDGET
 class SP_SeriesInfoWidget extends WP_Widget
 {
@@ -217,195 +410,8 @@ class SP_LatestSermonWidget extends WP_Widget
 add_action( 'widgets_init', function() {return register_widget("SP_LatestSermonWidget"); });
 
 
-// SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
-function sp_series_content($content)
-{
-	if (! sp_is_series()) return $content;
-	$content = sp_add_sermons_in_series($content);
-	return $content;
-}
-add_filter('the_content', 'sp_series_content');
-
-
-function sp_sermon_content($content)
-{
-	if(! sp_is_sermon()) return $content;
-	$series_graphic = sp_add_series_graphic('');
-	$media_player = sp_add_media_player('',false);
-	$downloads = sp_add_downloads('');
-
-	return $series_graphic . $media_player . $downloads . $content;
-}
-add_filter('the_content', 'sp_sermon_content');
-
-
-function sp_add_sermons_to_feed($qv)
-{
-	if (isset($qv['feed']) && !isset($qv['post_type']))
-	{
-		$qv['post_type'] = array('post', 'sp_sermon', 'sp_series', 'page');
-		//$qv['post_type']=get_post_types();
-	}
-	return $qv;
-}
-add_filter('request', 'sp_add_sermons_to_feed');
-
-
-// unused function to hijack the series archive pages
-function sp_series_archive()
-{
-	global $wp_query;
-	global $first_loop_done;
-	if (isset($first_loop_done) && $first_loop_done) return;
-	$first_loop_done = True;
-	//sp_debug($wp_query);
-	if (is_admin() || ! is_archive()) return;
-	if (isset($wp_query->query_vars['post_type']) && $wp_query->query_vars['post_type'] == 'sp_series')
-	{
-		// hijack the loop with our own series archive loop
-		$posts = $wp_query->posts;
-		$most_recent = $posts[0];
-		$the_rest = array_slice($posts,1);
-
-		// display the most recent series as if it were a single
-		$post = $most_recent;
-		setup_postdata($post);
-
-		?>
-
-			<div class="series most-recent">
-				<a href="<?php the_permalink(); ?>">
-					<?php print the_post_thumbnail('sp_poster',array('class' => 'fullwidth', 'title'=>get_the_title())); ?>
-					<div class="series-description">
-						<span class="series-title"><?php the_title(); ?></span>
-						<span class="series-excerpt"><?php the_excerpt(); ?></span>
-					</div>
-				</a>
-			</div>
-
-			<div class="series series-gallery">
-
-		<?php
-
-			foreach ($the_rest as $post)
-			{
-				setup_postdata($post);
-				?>
-
-				<div class="series-item">
-				<a href="<?php the_permalink(); ?>">
-					<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
-				</a>
-				</div>
-
-
-				<?php
-
-
-
-			}
-			$wp_query->posts = Array();
-
-		?>
-
-			</div>
-
-		<?php
-
-		return;
-	}
-	return;
-}
-// add_action('loop_start', 'sp_series_archive');
-
-
-// CONTENT MODIFICATION FILTER FUNCTIONS
-// SERIES MODIFICATIONS
-function sp_add_sermons_in_series($content)
-{
-	$sermon_words = sp_get_sermon_words();
-	$singular = $sermon_words['singular'];
-	$plural = $sermon_words['plural'];
-
-	if (! sp_is_series()) return $content;
-	else
-	{
-		global $post;
-		$series_id = $post->ID;
-		$series_slug = $post->post_name;
-		$sermons = sp_get_sermons_by_series($series_id);
-
-		$sermons_html = '<div class="sermon-listing series-'.$series_slug.'">';
-		$sermons_html .= sprintf('<h2>%s in this Series</h2>', ucwords($plural));
-
-		if (count($sermons) > 0)
-		{
-			foreach($sermons as $sermon)
-			{
-				$slug = $sermon->post_name;
-				$id = $sermon->ID;
-				$title = $sermon->post_title;
-				$excerpt = $sermon->post_excerpt;
-				$permalink = get_permalink($id);
-				$date = date('M j, Y', strtotime($sermon->post_date));
-				$this_html = "\n\n";
-				$this_html .= '<div class="sermon sermon-'.$slug.'">';
-				$this_html .= '<a href="' . $permalink . '">';
-				$this_html .= '<div class="sermon-date">' . $date . '</div>';
-				$this_html .= '<h3>' . $title . '</h3>';
-				$this_html .= '<div class="sermon-excerpt">' . $excerpt . '</div>';
-				$this_html .= '</a></div>' . "\n\n";
-				$sermons_html .= $this_html;
-			}
-		}
-		else $sermons_html .= sprintf('NO %s HAVE YET BEEN POSTED TO THIS SERIES', strtoupper($plural));
-	}
-	return $content . $sermons_html;
-}
-
-// SERMON MODIFICATIONS
-function sp_add_series_graphic($content)
-{
-	if (! sp_is_sermon()) return $content;
-	if (has_post_thumbnail()) return $content;
-	if (sp_has_video()) return $content;
-
-	// if we made it this far, we want to grab the series graphic from the sermon series page
-	$series_page_id = get_post_meta(get_the_ID(), 'sermon_series', TRUE);
-	$series_thumbnail = get_the_post_thumbnail($series_page_id, 'sp_poster', array('class' => 'fullwidth'));
-	return $series_thumbnail . $content;
-}
-
-function sp_add_downloads($content)
-{
-	$content = sp_make_download_links() . $content;
-	return $content;
-}
-
-// add media player to sermon posts
-function sp_add_media_player($content, $send_to_browser = TRUE)
-{
-	global $post;
-	if (!sp_is_sermon()) return $content;
-
-	if ($send_to_browser)
-	{
-		print "<!-- MEDIA PLAYER -->\n";
-		include "media_player.php";
-		print "\n<!-- END MEDIA PLAYER -->\n";
-		return $content;
-	}
-	else
-	{
-		ob_start();
-		include "media_player.php";
-		$result = ob_get_clean();
-		return $result . $content;
-	}
-}
-
-// SERMON OUTPUT HELPER FUNCTIONS
-function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='')
+// GALLERY SHORTCODE DISPLAY FUNCTIONS
+function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='', $format='overlay')
 {
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
@@ -413,6 +419,7 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	echo $before;
 	?>
 
+	<?php if ($format == 'overlay'): ?>
 	<div class="most-recent-series">
 		<div class="featured-series">
 			<a href="<?php echo get_permalink($featured_series_id); ?>">
@@ -426,12 +433,29 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 			</a>
 		</div>
 	</div>
+	<?php elseif ($format == 'left' || $format == 'right'): ?>
+	<div class="most-recent-series">
+		<div class="featured-series-<?php echo $format; ?>">
+			<a href="<?php echo get_permalink($featured_series_id); ?>">
+				<img class="featured-series-image-<?php echo $format; ?>" src="<?php echo $featured_series_image[0]; ?>" />
+				<div class="featured-series-image-sidebar">
+					<div class="featured-series-image-caption">
+						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+					</div>
+				</div>
+				<div class="clear">&nbsp;</div>
+			</a>
+		</div>
+	</div>
+	<?php endif; ?>
+
 
 	<?php
 	echo $after;
 	return $featured_series_id;
-
 }
+
 function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='')
 {
 	$featured_series = sp_get_featured_series();
@@ -464,16 +488,9 @@ function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $aft
 	<?php
 	echo $after;
 	return $featured_series_id;
+}
 
-}
-function sp_featured_helper($atts)
-{
-	extract( shortcode_atts( array(
-		'thumbnail_size' => 'sp_poster',
-		'before' => '',
-		'after' => ''), $atts ) );
-	sp_most_recent_series($thumbnail_size, $before, $after);
-}
+
 function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
 {
 	$series_posts = sp_get_all_series();
@@ -514,13 +531,24 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 
 	<?php
 }
+
+// REGISTER GALLERY SHORTCODES
+function sp_featured_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_poster',
+		'before' => '',
+		'after' => '',
+		'format' => 'overlay'), $atts ) );
+	sp_most_recent_series($thumbnail_size, $before, $after, $format);
+}
 function sp_gallery_helper($atts)
 {
 	extract( shortcode_atts( array(
 		'thumbnail_size' => 'sp_thumb',
 		'before' => '',
 		'after' => '',
-		'exclude' => '' ), $atts ) );
+		'exclude' => ''), $atts ) );
 
 	ob_start();
 	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
@@ -531,17 +559,20 @@ function sp_full_gallery_helper($atts)
 	extract( shortcode_atts( array(
 		'thumbnail_size' => 'sp_poster',
 		'before' => '',
-		'after' => ''), $atts ) );
+		'after' => '',
+		'format' => 'overlay'), $atts ) );
 
 	ob_start();
 
-	$fid = sp_most_recent_series($thumbnail_size, $before, $after);
+	$fid = sp_most_recent_series($thumbnail_size, $before, $after, $format);
 	sp_past_series_gallery('sp_thumb','','',$fid);
 	return ob_get_clean();
 }
 add_shortcode('sp_featured', 'sp_featured_helper');
 add_shortcode('sp_gallery', 'sp_gallery_helper');
 add_shortcode('sp_full_gallery', 'sp_full_gallery_helper');
+
+
 
 // SERMON CONTENT HELPER FUNCTIONS
 // add downloads links to posts

@@ -62,3 +62,31 @@
 .featured-series-title, .series-gallery-item-title {font-weight:700;text-transform:uppercase;}
 .featured-series-excerpt, .series-gallery-item-excerpt {font-weight:300;font-style:italic;line-height:.9em;}
 .featured-series-date, .series-gallery-item-date {font-weight:300;font-size:.9em;}
+
+
+/* GALLERY ALTERNATIVES FOR FEATURED SERIES */
+.featured-series-left a,
+.featured-series-right a
+{box-sizing:border-box;display:block;padding:10px;box-shadow:0px 0px 15px rgba(0,0,0,.5);}
+
+.featured-series-left a:hover,
+.featured-series-right a:hover
+{background:rgba(0,0,0,.15);}
+
+.featured-series-image-right {float:right;width:60%;margin-left:10px;box-sizing:border-box;}
+.featured-series-image-left {float:left;width:60%;margin-right:10px;box-sizing:border-box;}
+
+.featured-series-right .featured-series-image-sidebar
+{margin-right:calc(60% + 10px);width:calc(40% - 10px);box-sizing:border-box;}
+
+.featured-series-left .featured-series-image-sidebar
+{margin-left:calc(60% + 10px);width:calc(40% - 10px);box-sizing:border-box;}
+
+.featured-series-image-sidebar .featured-series-title {font-size:2.5em;line-height:1em;}
+.featured-series-image-sidebar .featured-series-excerpt {margin-top:12px;line-height:1.4em;padding:20px;}
+
+@media (max-width: 1020px) {
+.featured-series-image-right,
+.featured-series-image-left {float:none !important; width:100% !important; margin:0 !important;}
+.featured-series-image-sidebar {text-align:center;width:100% !important;margin:0 !important;}
+}
