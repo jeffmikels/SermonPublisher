@@ -15,6 +15,7 @@ Author URI: http://jeff.mikels.cc
 */
 
 define('SP_DO_LOG',1);
+define('SP_SHOW_DEBUG',0);
 define('SP_LOG_FILE', dirname(__FILE__) . '/sp_log.log');
 
 
@@ -751,9 +752,12 @@ function sp_url_exists($url)
 }
 function sp_debug($s)
 {
-	print "<pre>";
-	print_r($s);
-	print "</pre>";
+	if (SP_SHOW_DEBUG)
+	{
+		print "<pre>";
+		print_r($s);
+		print "</pre>";		
+	}
 	if (SP_DO_LOG) sp_log($s);
 }
 
@@ -948,6 +952,7 @@ function sp_ajax_upload_listener()
 	$post_id = $_POST['post_id'];
 	$remove_local = isset($_POST['remove_local']) && $_POST['remove_local'];
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
+	$retval = '';
 
 	// make sure all specified files are uploaded to archive.org
 	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
@@ -964,6 +969,8 @@ function sp_ajax_upload_listener()
 		foreach ($previous_uploads as $pu)
 		{
 			$attachment_path = get_attached_file($pu->ID, TRUE);
+			sp_debug('PREPARING TO UPLOAD');
+			sp_debug($attachment_path);
 
 			// check to see if this file has been uploaded to archive.org yet
 			$already_uploaded = False;
@@ -971,14 +978,15 @@ function sp_ajax_upload_listener()
 			{
 				if (basename($acu) == basename($attachment_path)) $already_uploaded = True;
 			}
-			if (! $already_uploaded) sp_do_archive_upload($post_id, $attachment_path);
+			if (! $already_uploaded) $retval = sp_do_archive_upload($post_id, $attachment_path);
 		}
 	}
 	else
 	{
-		sp_do_archive_upload($post_id, $file_path);
+		$retval = sp_do_archive_upload($post_id, $file_path);
 	}
 	if ($remove_local) sp_remove_local_files($post_id);
+	wp_send_json($retval);
 }
 
 // remove local files that exist on archive.org
@@ -987,12 +995,14 @@ function sp_remove_local_files($post_id)
 {
 	sp_debug('sp_remove_local_files');
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
+	
 	$args = array(
 		'post_parent' => $post_id,
 		'post_type' => 'attachment',
 		'post_status' => 'inherit'
 	);
 	$previous_uploads = get_children($args);
+	
 
 	foreach ($archive_completed_uploads as $acu)
 	{
@@ -1024,13 +1034,21 @@ function sp_remove_local_files($post_id)
 					// replace the enclosure
 					delete_post_meta($post_id, $key, $oldenc);
 					add_post_meta($post_id, $key, $newenc);
-
-					// run through all attachments to remove the one which matches $oldurl
-					foreach ($previous_uploads as $pu)
-					{
-						if (basename(wp_get_attachment_url($pu->ID)) == $oldurl)
-							wp_delete_attachment($pu->ID, True);
-					}
+				}
+			}
+			
+			// since this file is successfully hosted on archive.org, delete local attachments that match it
+			// run through all attachments to remove the one which matches $oldurl
+			$basename = basename($acu);
+			sp_debug('DELETING LOCAL FILES MATCHING: ' . $basename);
+			
+			foreach ($previous_uploads as $pu)
+			{
+				$upload_file = basename(wp_get_attachment_url($pu->ID));
+				if ($upload_file == $basename)
+				{
+					sp_debug('FOUND: ' . $upload_file);
+					wp_delete_attachment($pu->ID, True);
 				}
 			}
 		}
@@ -1048,9 +1066,19 @@ function sp_queue_archive_upload($post_id, $file_path)
 	wp_schedule_single_event(time()+3, 'sp_do_archive_upload', array($post_id, $file_path));
 }
 
+// this function is called by ajax, so we want to return json
 function sp_do_archive_upload($post_id, $file_path)
-{
-	if (empty($file_path)) return;
+{	
+	$retval = array();
+	$curl_debug = '';
+	
+	if (empty($file_path))
+	{
+		$retval['error'] = 1;
+		$retval['msg'] = 'No file was specified.';
+		sp_debug('ERROR: No file was specified.');
+		return $retval;
+	}
 
 	ini_set('max_execution_time', 60*60);
 	add_post_meta($post_id, 'sp_archive_uploading', $file_path);
@@ -1102,8 +1130,8 @@ function sp_do_archive_upload($post_id, $file_path)
 	$filesize = filesize($file_path);
 
 
-	// now we execute the s3 commands to upload this file
-	$curl_basic_headers = Array("authorization: LOW $accesskey:$secretkey", 'Content-Length:' . $filesize);
+	// now we setup and execute the s3 commands to upload this file
+	$curl_basic_headers = Array("authorization: LOW $accesskey:$secretkey", 'x-archive-size-hint:' . $filesize);
 	$curl_bucket_create_headers = Array('x-archive-auto-make-bucket:1');
 	$curl_metadata_headers = Array();
 	foreach($metadata as $key=>$value)
@@ -1114,7 +1142,27 @@ function sp_do_archive_upload($post_id, $file_path)
 	$archive_endpoint = $archive_server . '/' . $identifier . '/' . urlencode(basename($file_path));
 
 	$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers, $curl_bucket_create_headers);
+	
+	// generate curl command line for testing
+    // curl --location --header 'x-amz-auto-make-bucket:1' \
+    //      --header 'x-archive-meta01-collection:opensource_movies' \
+    //      --header 'x-archive-meta-mediatype:movies' \
+    //      --header 'x-archive-meta-title:Ben plays piano.' \
+    //      --header "authorization: LOW $accesskey:$secret" \
+    //      --upload-file ben-2009-05-09.avi \
+    //      http://s3.us.archive.org/ben-plays-piano/ben-plays-piano.avi
+	
+	$curl_debug = "curl --location \\\n";
+	foreach($curl_headers as $h)
+	{
+		$curl_debug .= "    --header '$h' \\\n";
+	}
+	$curl_debug .=     "    --upload-file '$file_path' \\\n";
+	$curl_debug .= "'$archive_endpoint'";
+	
 	sp_debug('attempting to start upload');
+	sp_debug('CURL COMMAND:');
+	sp_debug($curl_debug);
 	sp_debug('CURL HEADERS:');
 	sp_debug($curl_headers);
 	sp_debug('ARCHIVE_ENDPOINT');
@@ -1140,7 +1188,7 @@ function sp_do_archive_upload($post_id, $file_path)
 	$count = 1;
 	if (strpos($response, 'BucketAlreadyExists') !== False)
 	{
-		sp_debug('trying to submit again');
+		sp_debug('bucket exists trying to submit files to that bucket');
 		$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers);
 		sp_debug($curl_headers);
 		$ch = curl_init();
@@ -1158,24 +1206,36 @@ function sp_do_archive_upload($post_id, $file_path)
 		$response = curl_exec($ch);
 		sp_debug('EXEC AGAIN');
 		sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
+		sp_debug($response);
 	}
-	sp_debug('FINAL CURL RESPONSE');
-	sp_debug($response);
-
+	
 	delete_post_meta($post_id, 'sp_archive_uploading', $file_path);
+	
+	
+	// was it successful?
+	$response_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
 	if (curl_errno($ch) )
 	{
 		sp_debug('CURL ERROR');
 		sp_debug(curl_error($ch));
+		$retval['error'] = 1;
+		$retval['msg'] = 'Unknown CURL error. Contact your webmaster. <pre>'.curl_error($ch).'<br><br>'.$response.'</pre>';
+	}
+	elseif ($response_code != 200)
+	{
+		sp_debug('HTTP ERROR CODE');
+		sp_debug($response_code);
+		$retval['error'] = 1;
+		$retval['msg'] = 'Unknown Uploading error. Contact your webmaster. <pre>'.$response.'</pre>';
 	}
 	else
 	{
 		$archive_item = "http://archive.org/details/" . $identifier;
 		$archive_file = "http://archive.org/download/" . $identifier . '/' . urlencode(basename($file_path));
 
-		print "<li><a href=\"$archive_item\">$archive_item</a>";
-		print "<li><a href=\"$archive_file\">$archive_file</a>";
+		// print "<li><a href=\"$archive_item\">$archive_item</a>";
+		// print "<li><a href=\"$archive_file\">$archive_file</a>";
 
 		// now we add the post metadata that is needed
 		add_post_meta($post_id, 'sp_archive_identifier', $identifier, True) || update_post_meta($post_id, 'sp_archive_identifier', $identifier);
@@ -1185,9 +1245,16 @@ function sp_do_archive_upload($post_id, $file_path)
 		$uploaded_files = get_post_meta($post_id, 'sp_archive_uploaded_file');
 		if (! in_array($archive_file, $uploaded_files))
 			add_post_meta($post_id, 'sp_archive_uploaded_file', $archive_file);
+		
+		$retval['error'] = 0;
+		$retval['msg'] = 'Success';
+		$retval['archive_item'] = $archive_item;
+		$retval['archive_file'] = $archive_file;
 	}
 	curl_close($ch);
-
+	sp_debug('SENDING JSON');
+	sp_debug(json_encode($retval));
+	return $retval;
 }
 
 ?>

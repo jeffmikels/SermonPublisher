@@ -185,7 +185,7 @@ function sp_sermon_media_meta_setup()
 		}
 		else
 		{
-			$html .= '<div id="sp-archive-submit-button-container">Once this post is saved, you will be able to transfer uploaded files to archive.org for hosting.</div>';
+			$html .= '<div id="sp-archive-submit-button-container">Once this post is saved, you will be able to transfer uploaded files to archive.org for permanent, free hosting.</div>';
 		}
 	}
 	echo $html;
@@ -203,7 +203,7 @@ function sp_upload_button_handler()
 			'action': 'sp_upload',
 			'post_id': <?php echo get_the_ID(); ?>,
 		};
-
+				
 		$('#sp-button-remove-local').click(function(e)
 		{
 			e.preventDefault();
@@ -223,6 +223,15 @@ function sp_upload_button_handler()
 				method: 'POST',
 				success: function(response){
 					console.log(response);
+					if (! response.error)
+					{
+						setTimeout(function(){document.location.reload()}, 3000);
+						$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page in 3 seconds')
+					}
+					else
+					{
+						$('#sp-archive-submit-button-container .sp-warning').html('There was an error removing local files.');
+					}
 				},
 				error: function(response){
 					console.log(response);
@@ -230,8 +239,6 @@ function sp_upload_button_handler()
 				complete: function(){
 					$('.button').removeClass('disabled');
 					$('#sp-archive-submit-button-container .spinner').css('display','');
-					$('#sp-archive-submit-button-container .sp-warning').html('reloading page in 3 seconds');
-					setTimeout(function(){document.location.reload()}, 3000);
 				}
 			});
 		});
@@ -248,7 +255,7 @@ function sp_upload_button_handler()
 			$('#sp-archive-submit-button-container .sp-warning').slideDown();
 
 
-			// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
+			// since 2.8 ajaxurl is always defined in the wordpress admin header and points to admin-ajax.php
 			$.ajax({
 				url: ajaxurl,
 				data: data,
@@ -256,7 +263,15 @@ function sp_upload_button_handler()
 				success: function(response)
 				{
 					console.log(response);
-					$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page in 3 seconds');
+					if (! response.error)
+					{
+						setTimeout(function(){document.location.reload()}, 3000);
+						$('#sp-archive-submit-button-container .sp-warning').html('Reloading page in 3 seconds')
+					}
+					else
+					{
+						$('#sp-archive-submit-button-container .sp-warning').html('There was an error uploading to archive.org:<br />' + response.msg);
+					}
 					// setTimeout(function(){document.location.reload()}, 3000);
 				},
 				error: function(response)
