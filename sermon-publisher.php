@@ -445,10 +445,11 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
 					</div>
 				</div>
-				<div class="clear">&nbsp;</div>
 			</a>
 		</div>
 	</div>
+	<div class="clear">&nbsp;</div>
+	
 	<?php endif; ?>
 
 
