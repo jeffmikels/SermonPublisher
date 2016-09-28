@@ -237,8 +237,8 @@ function sp_upload_button_handler()
 					console.log(response);
 					if (! response.error)
 					{
-						setTimeout(function(){document.location.reload()}, 3000);
-						$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page in 3 seconds')
+						setTimeout(function(){document.location.reload()}, 1000);
+						$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page!')
 					}
 					else
 					{
