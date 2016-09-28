@@ -72,7 +72,7 @@ function sp_sermon_media_meta_setup()
 	$upload_mb = min($max_upload, $max_post);
 
 	global $post;
-	$previous_uploads = array();
+	$attached_files = array();
 	if ($post->ID)
 	{
 		$args = array(
@@ -80,13 +80,26 @@ function sp_sermon_media_meta_setup()
 			'post_type' => 'attachment',
 			'post_status' => 'inherit'
 		);
-		$previous_uploads = get_children($args);
+		$attached_files = get_children($args);
 	}
+	
+	// check if this post is connected to an archive.org item
+	$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
+	
+	
 	$upload_purposes = array('video','audio','notes','manuscript','slides', 'other');
 	$html = '';
 	$html .= '<p class="description">Locally Hosted Files</p>';
 
-	if (! $previous_uploads) $html .= "<p>NONE</p>";
+	if (! $attached_files)
+	{
+		$html .= "<p>NO FILES ATTACHED TO THIS POST</p>";
+		if (! empty($identifier))
+		{
+			$html .= "<p class=\"sp-archive-link\">Files for this item are hosted at archive.org.<br /><a target=\"_blank\" href=\"http://archive.org/details/$identifier\">View Them There</a></p>";
+		}
+		
+	}
 	else
 	{
 		// we will compare to the files already stored in custom fields
@@ -97,10 +110,10 @@ function sp_sermon_media_meta_setup()
 		$html .= '<div class="sp_previous_uploads">';
 		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th><th>PURPOSE</th></tr>';
 
-		foreach ($previous_uploads as $pu)
+		foreach ($attached_files as $af)
 		{
-			$attachment_path = get_attached_file($pu->ID, TRUE);
-			$attachment_url = wp_get_attachment_url($pu->ID);
+			$attachment_path = get_attached_file($af->ID, TRUE);
+			$attachment_url = wp_get_attachment_url($af->ID);
 
 			$attachment_name = basename ($attachment_path);
 			$attachment_purpose = 'NONE';
@@ -133,7 +146,7 @@ function sp_sermon_media_meta_setup()
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
 			$html .= '<tr>';
-			$html .= '<td><input name="sp_media_delete[' . $pu->ID . ']" value="yes" type="checkbox" /></td>';
+			$html .= '<td><input name="sp_media_delete[' . $af->ID . ']" value="yes" type="checkbox" /></td>';
 			$html .= '<td><span class="sp-media-name" title="'.$attachment_name.'">' . $attachment_shortname . '</span></td>';
 			$html .= '<td><span class="sp-media-purpose">' . $attachment_purpose . '</span></td>';
 			$html .= '</tr>';
@@ -155,12 +168,11 @@ function sp_sermon_media_meta_setup()
 
 	// check to see if archive.org uploading is enabled
 	$options = get_option('sp_options');
-	if($options['send_to_archive'] && $previous_uploads)
+	if($options['send_to_archive'] && $attached_files)
 	{
 		$html .= "<h4>archive.org posting</h4>";
 
 		//check to see if this media has been sent to archive.org already
-		$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
 		$upload_button_text = 'Upload Attached Files to Archive.org';
 		if (! empty($identifier) )
 		{
@@ -207,7 +219,7 @@ function sp_upload_button_handler()
 		$('#sp-button-remove-local').click(function(e)
 		{
 			e.preventDefault();
-			if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
+			//if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
 
 			// trigger the remove_local action
 			data.remove_local = 1;
