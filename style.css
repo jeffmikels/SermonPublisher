@@ -9,12 +9,6 @@
 .download-links a{display:inline-block;padding:6px;border-radius:3px;background-color:rgba(200,200,200,.3);}
 .download-links a:hover {background-color:rgba(200,200,200,.8);}
 .media-player-title {text-transform:uppercase;opacity:.6;}
-
-.SeriesInfoWidget { margin-top:10px; margin-bottom:10px; }
-.SeriesInfoWidget .sp_thumb {width:100%;height:auto;}
-.SeriesInfoWidget .sp_caption {font-size:.9em;}
-.SeriesInfoWidget .most-recent-sermon a{font-size:1.3em;}
-
 .sermon-media-table {font-size:.8em;width:100%;}
 .sp-warning {color:red;font-weight:bold;background-color:#ffaaaa;padding:4px;margin-top:5px;}
 .sp-media-title {}
@@ -44,6 +38,13 @@
 .series-gallery>div:nth-child(3n+0) {margin-right:0;}
 .series-gallery-item {font-size:10pt;float:left;position:relative;}
 .series-gallery-item-image {height:calc(14vw) !important;}
+
+/* WIDGET STYLING */
+.SP_SeriesInfoWidget { margin-top:10px; margin-bottom:10px; }
+.SP_SeriesInfoWidget .sp_thumb {width:100%;height:auto;}
+.SP_SeriesInfoWidget .sp_caption {font-size:.9em;}
+.SP_SeriesInfoWidget .most-recent-sermon a{font-size:1.3em;}
+
 
 /* CAPTIONS */
 .featured-series-image-overlay,

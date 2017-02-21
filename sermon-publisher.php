@@ -393,10 +393,10 @@ class SP_LatestSermonWidget extends WP_Widget
 
 		// on other pages, show the most recent sermon
 		?>
-		<h4 class="widget-title widgettitle">Most Recent <?php echo $singular; ?></h4>
+		<h4 class="widget-title widgettitle">Most Recent <?php echo ucfirst($singular); ?></h4>
 
 		<?php
-		sp_most_recent_sermon();
+		sp_most_recent_sermon('sp_thumb');
 		/*?>
 
 		<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
