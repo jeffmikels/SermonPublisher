@@ -54,13 +54,13 @@ function sp_custom_post_types()
 		),
 		'public' => true,
 		'has_archive' => true,
+		'taxonomies' => array('post_tag'),
 		'rewrite' => array('slug' => 'series'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
 		'menu_position' => 6,
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
 	));
-
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
 	$plural = $sermon_words['plural'];
