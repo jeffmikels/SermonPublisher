@@ -115,7 +115,7 @@ function sp_sermon_content($content)
 	$series_graphic = sp_add_series_graphic('');
 	$media_player = sp_add_media_player('',false);
 	$downloads = sp_add_downloads('');
-
+	
 	return $series_graphic . $media_player . $downloads . $content;
 }
 add_filter('the_content', 'sp_sermon_content');
@@ -611,6 +611,10 @@ function sp_make_download_links()
 
 function sp_has_video()
 {
+	// check for youtube link
+	$youtube_link = get_post_custom_values('youtube_link');
+	if (!empty($youtube_link)) return True;
+	
 	$enclosures = get_post_custom_values('enclosure');
 	$video_extensions = array('.mp4','.ogv','webm');
 	if ($enclosures)

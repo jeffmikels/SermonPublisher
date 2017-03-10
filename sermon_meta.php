@@ -13,10 +13,11 @@ function sp_sermon_meta_init()
 	// review the function reference for parameter details
 	// http://codex.wordpress.org/Function_Reference/add_meta_box
 
-	// add a meta box for each of the wordpress page types: posts and pages
+	// add a meta box for sermon pages
 	foreach (array('sp_sermon') as $type)
 	{
 		add_meta_box('sp_sermon_series_meta', sprintf('%s Series', ucwords($singular)), 'sp_sermon_series_meta_setup', $type, 'side', 'high');
+		add_meta_box('sp_sermon_youtube_meta', sprintf('%s YouTube', ucwords($singular)), 'sp_sermon_youtube_meta_setup', $type, 'side', 'high');
 		add_meta_box('sp_sermon_media_meta', sprintf('%s Media', ucwords($singular)), 'sp_sermon_media_meta_setup', $type, 'side', 'high');
 	}
 
@@ -32,6 +33,19 @@ function sp_sermon_meta_init()
 	add_action('admin_footer', 'sp_upload_button_handler');
 }
 
+// youtube auto embed meta box
+function sp_sermon_youtube_meta_setup()
+{
+	global $post;
+	$youtube_link = get_post_meta($post->ID,'youtube_link',TRUE);
+
+	// meta HTML code
+	echo '<div class="">';
+	echo '<label for="youtube_link_input">YouTube Link or Video ID: </label><br />';
+	echo '<input style="width:100%;" name="youtube_link" id="youtube_link_input" value="' . $youtube_link . '" /><br />';
+	echo '<small>Paste a valid youtube link or video id here.</small>';
+	echo '</div>';
+}
 
 function sp_sermon_series_meta_setup()
 {
@@ -316,7 +330,7 @@ function sp_sermon_meta_save($post_id)
 
 	// authentication checks
 	// make sure data came from our meta box
-	if ( ! isset($_POST['sp_sermon_meta_noncename']) || !wp_verify_nonce($_POST['sp_sermon_meta_noncename'],__FILE__)) return $post_id;
+	if (! isset($_POST['sp_sermon_meta_noncename']) || !wp_verify_nonce($_POST['sp_sermon_meta_noncename'],__FILE__)) return $post_id;
 
 	// check user permissions
 	if (!current_user_can('edit_post', $post_id)) return $post_id;
@@ -334,10 +348,17 @@ function sp_sermon_meta_save($post_id)
 	// $current_data = get_post_meta($post_id, 'sermon_series', TRUE);
 	$new_data = $_POST['sermon_series'];
 	// sp_sermon_meta_clean($new_data);
-
+	
 	if (-1 == $new_data) delete_post_meta($post_id, 'sermon_series');
 	elseif (! update_post_meta($post_id,'sermon_series',$new_data))
 		add_post_meta($post_id,'sermon_series',$new_data,TRUE);
+
+
+	// YOUTUBE LINK
+	$youtube_link = $_POST['youtube_link'] or '';
+	if ( !empty($youtube_link) )
+		if (! update_post_meta($post_id,'youtube_link',$youtube_link))
+				add_post_meta($post_id,'youtube_link',$youtube_link,TRUE);
 
 
 	// SERMON MEDIA DELETIONS
