@@ -221,10 +221,34 @@ function sp_add_sermons_in_series($content)
 		$sermons = sp_get_sermons_by_series($series_id);
 
 		$sermons_html = '<div class="sermon-listing series-'.$series_slug.'">';
-		$sermons_html .= sprintf('<h2>%s in this Series</h2>', ucwords($plural));
-
+		
+		// put the most recent sermon on top
+		if (count($sermons) > 3)
+		{
+			$sermons_html .= sprintf('<div class="sp-most-recent"><h2>Most Recent %s in this Series</h2>', ucwords($singular));
+			$sermon = $sermons[count($sermons) - 1];
+			$slug = $sermon->post_name;
+			$id = $sermon->ID;
+			$title = $sermon->post_title;
+			$excerpt = $sermon->post_excerpt;
+			$permalink = get_permalink($id);
+			$date = date('M j, Y', strtotime($sermon->post_date));
+			$this_html = "\n\n";
+			$this_html .= '<div class="sermon sermon-'.$slug.'">';
+			$this_html .= '<a href="' . $permalink . '">';
+			$this_html .= '<div class="sermon-date">' . $date . '</div>';
+			$this_html .= '<h3>' . $title . '</h3>';
+			$this_html .= '<div class="sermon-excerpt">' . $excerpt . '</div>';
+			$this_html .= '</a></div>' . "\n\n";
+			$this_html .= '</div><!-- end .sp-most-recent -->';
+			$sermons_html .= $this_html;
+		}
+		
+		
+		// make a list of all the sermons
 		if (count($sermons) > 0)
 		{
+			$sermons_html .= sprintf('<div class="sp-all-sermons"><h2>All %s in this Series</h2>', ucwords($plural));
 			foreach($sermons as $sermon)
 			{
 				$slug = $sermon->post_name;
@@ -242,8 +266,11 @@ function sp_add_sermons_in_series($content)
 				$this_html .= '</a></div>' . "\n\n";
 				$sermons_html .= $this_html;
 			}
+			$sermons_html .= '</div><!-- end .sp-all-sermons -->';
 		}
 		else $sermons_html .= sprintf('NO %s HAVE YET BEEN POSTED TO THIS SERIES', strtoupper($plural));
+		$sermons_html .= '</div> <!-- close .sermon-listing -->';
+
 	}
 	return $content . $sermons_html;
 }
