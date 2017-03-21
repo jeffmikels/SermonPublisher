@@ -218,6 +218,8 @@ function sp_sermon_media_meta_setup()
 
 function sp_upload_button_handler()
 {
+	if (empty(get_the_ID())) return;
+	
 	?>
 
 	<script type="text/javascript">
@@ -226,7 +228,7 @@ function sp_upload_button_handler()
 	jQuery(document).ready(function($){
 		var sp_upload_data = {
 			'action': 'sp_upload',
-			'post_id': <?php echo get_the_ID(); ?>,
+			'post_id': <?php echo get_the_ID(); ?>
 		};
 		
 		
@@ -292,14 +294,42 @@ function sp_upload_button_handler()
 				success: function(response)
 				{
 					console.log(response);
-					if (! response.error)
+					
+					// response can be an object representing one file upload
+					// an array representing the results of multiple uploads
+					// or an empty array if something else goes wrong
+					var had_error = false;
+					var err_msg = [];
+					if (response.length == 0)
 					{
-						setTimeout(function(){document.location.reload()}, 3000);
-						$('#sp-archive-submit-button-container .sp-warning').html('Reloading page in 3 seconds')
+						had_error = true;
+						err_msg.push('Unknown upload error');
+					}
+					if (response.error)
+					{
+						had_error = true;
+						err_msg.push(response.msg);
+					}
+					if (response.length > 0)
+					{
+						for (var i in response)
+						{
+							if (response[i].error)
+							{
+								had_error = true;
+								err_msg.push(response[i].msg);
+							}
+						}
+					}
+					
+					if (had_error)
+					{
+						$('#sp-archive-submit-button-container .sp-warning').html('There was an error uploading to archive.org:<br />' + err_msg.join('<br />'));
 					}
 					else
 					{
-						$('#sp-archive-submit-button-container .sp-warning').html('There was an error uploading to archive.org:<br />' + response.msg);
+						setTimeout(function(){document.location.reload()}, 3000);
+						$('#sp-archive-submit-button-container .sp-warning').html('SUCCESS! Reloading page in 3 seconds');
 					}
 					// setTimeout(function(){document.location.reload()}, 3000);
 				},

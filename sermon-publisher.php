@@ -94,7 +94,10 @@ add_action( 'init', 'sp_custom_post_types' );
 
 
 /** META BOX CODE */
-include ("sermon_meta.php");
+include ("sermon-meta.php");
+
+/** WIDGETS CODE */
+include ("sermon-widgets.php");
 
 
 // SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
@@ -288,129 +291,6 @@ function sp_add_media_player($content, $send_to_browser = TRUE)
 }
 
 
-
-// WIDGETS
-// ADD A NEW SERIES INFO WIDGET
-class SP_SeriesInfoWidget extends WP_Widget
-{
-	public function __construct()
-	{
-		$widget_ops = array('classname' => 'SP_SeriesInfoWidget', 'description' => 'Series information as a widget on series pages and sermon pages. Displays nothing otherwise.');
-		parent::__construct('SP_SeriesInfoWidget', 'Series Info and Thumbnail', $widget_ops);
-	}
-
-	function widget($args, $instance)
-	{
-
-
-		// check to see if this is a sermon or series page.
-		// if it is neither, output nothing at all.
-		if (! sp_is_sermon() and ! sp_is_series()) return;
-
-		// Widget Code Goes Here
-		extract($args, EXTR_SKIP);
-		global $post;
-
-		$sermon_words = sp_get_sermon_words();
-		$singular = $sermon_words['singular'];
-		$plural = $sermon_words['plural'];
-
-		$thumbnail_size = 'sp_thumb';
-
-		echo $before_widget;
-
-		if (sp_is_sermon())
-		{
-			// on a sermon page, show information on the current series
-			$series_page_id = get_post_meta($post->ID, 'sermon_series', TRUE);
-			$series_page = get_post($series_page_id);
-			$series_permalink = get_permalink($series_page_id);
-			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
-			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
-			$sermons = sp_get_sermons_by_series($series_page_id);
-
-			if ((count($sermons) - 1) == 0) $countval = 'are no other ' . $plural;
-			elseif ((count($sermons) - 1) == 1) $countval = 'is one other ' . $singular;
-			else $countval = sprintf('are %d other %s', count($sermons) - 1, $plural);
-
-			?>
-
-			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			<p class="sp_caption">This <?php echo $singular; ?> is part of a series called <a href="<?php print $series_permalink; ?>" class="sp_series_link"><strong><?php echo $series_page->post_title; ?></strong></a>. There <?php echo $countval; ?> in this series.</p>
-
-			<?php
-		}
-
-		elseif (sp_is_series())
-		{
-			// on a series page, show the series statistics
-
-			$series_page_id = $post->ID;
-			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
-			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
-			$sermons = sp_get_sermons_by_series($series_page_id);
-
-			if ((count($sermons)) == 0) $countval = 'are no ' . $plural;
-			elseif ((count($sermons)) == 1) $countval = 'is one ' . $singular;
-			else $countval = sprintf('are %d %s', count($sermons), $plural);
-
-			?>
-
-			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
-
-			<?php
-		}
-
-		echo $after_widget;
-	}
-}
-add_action( 'widgets_init', function() {return register_widget("SP_SeriesInfoWidget"); });
-
-
-// ADD A NEW LATEST SERMON WIDGET
-class SP_LatestSermonWidget extends WP_Widget
-{
-	function __construct()
-	{
-		$widget_ops = array('classname' => 'SP_LatestSermonWidget', 'description' => 'Widget to display the most recent sermon with the link and graphic of its series.');
-		parent::__construct('SP_LatestSermonWidget', 'Latest Sermon', $widget_ops);
-	}
-
-	function widget($args, $instance)
-	{
-
-		extract($args, EXTR_SKIP);
-		global $post;
-
-		$sermon_words = sp_get_sermon_words();
-		$singular = $sermon_words['singular'];
-		$plural = $sermon_words['plural'];
-
-		$thumbnail_size = 'sp_thumb';
-
-		echo $before_widget;
-
-		// on other pages, show the most recent sermon
-		?>
-		<h4 class="widget-title widgettitle">Most Recent <?php echo ucfirst($singular); ?></h4>
-
-		<?php
-		sp_most_recent_sermon($thumbnail_size);
-		/*?>
-
-		<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-		<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
-
-
-		<?php*/
-
-		echo $after_widget;
-	}
-}
-add_action( 'widgets_init', function() {return register_widget("SP_LatestSermonWidget"); });
-
-
 // GALLERY SHORTCODE DISPLAY FUNCTIONS
 function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='', $format='overlay')
 {
@@ -458,34 +338,41 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	return $featured_series_id;
 }
 
-function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='')
+function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='', $show_image=1, $show_text=1)
 {
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
 	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);
 	$most_recent = sp_get_most_recent_sermon();
+	$permalink = get_permalink($most_recent->ID);
 	echo $before;
-	?>
 
+	?>
+	
+	<?php if ($show_image == 1): ?>
 	<div class="most-recent-series">
 		<div class="featured-series">
-			<a href="<?php echo get_permalink($featured_series_id); ?>">
+			<a href="<?php echo $permalink; ?>">
 				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
 				<div class="featured-series-image-overlay">
 					<div class="featured-series-image-caption">
-						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
-						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+						<div class="featured-series-title"><?php echo $most_recent->post_title; ?></div>
 					</div>
 				</div>
 			</a>
 		</div>
 	</div>
+	<?php endif;?>
+	
+	<?php if ($show_text == 1): ?>
 	<div class="most-recent-sermon">
-		<a href="<?php echo get_permalink($most_recent->ID); ?>">
+		<!-- <a href="<?php echo get_permalink($featured_series_id); ?>"><?php echo $featured_series->post_title; ?> ::<br /> -->
+		<a href="<?php echo $permalink; ?>">
 			<?php echo $most_recent->post_title; ?>
 		</a>
 		<br /><?php echo get_the_date(get_option( 'date_format' ), $most_recent->ID); ?>
 	</div>
+	<?php endif; ?>
 
 	<?php
 	echo $after;
@@ -957,12 +844,21 @@ function sp_ajax_upload_listener()
 	$post_id = $_POST['post_id'];
 	$remove_local = isset($_POST['remove_local']) && $_POST['remove_local'];
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
-	$retval = '';
+	$retval = [];
+	$had_error = False;
 
 	// make sure all specified files are uploaded to archive.org
+	// if none are specified in a POST variable, attempt to upload all attachments
 	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
-	if ($file_path == '')
+	if (!empty($file_path))
 	{
+		$retval = sp_do_archive_upload($post_id, $file_path);
+		if ($retval['error']) $had_error = True;
+	}
+	else
+	{
+		$retval = array();
+		
 		//attempt to upload all the files
 		$previous_uploads = array();
 		$args = array(
@@ -981,16 +877,24 @@ function sp_ajax_upload_listener()
 			$already_uploaded = False;
 			foreach ($archive_completed_uploads as $acu)
 			{
-				if (basename($acu) == basename($attachment_path)) $already_uploaded = True;
+				if (basename($acu) == basename($attachment_path))
+				{
+					$already_uploaded = True;
+					sp_debug('ALREADY UPLOADED');
+					$retval['error'] = 1;
+					$retval['msg'] = $attachment_path . ' was already uploaded';
+				}
 			}
-			if (! $already_uploaded) $retval = sp_do_archive_upload($post_id, $attachment_path);
+			if (! $already_uploaded)
+			{
+				$res = sp_do_archive_upload($post_id, $attachment_path);
+				if ($res['error']) $had_error = True;
+				$retval[] = $res;
+			}
 		}
 	}
-	else
-	{
-		$retval = sp_do_archive_upload($post_id, $file_path);
-	}
-	if ($remove_local) sp_remove_local_files($post_id);
+	if (! $had_error && $remove_local) sp_remove_local_files($post_id);
+	sp_debug($retval);
 	wp_send_json($retval);
 }
 
@@ -1073,7 +977,8 @@ function sp_queue_archive_upload($post_id, $file_path)
 
 // this function is called by ajax, so we want to return json
 function sp_do_archive_upload($post_id, $file_path)
-{	
+{
+	sp_debug('testing');
 	$retval = array();
 	$curl_debug = '';
 	
@@ -1084,7 +989,8 @@ function sp_do_archive_upload($post_id, $file_path)
 		sp_debug('ERROR: No file was specified.');
 		return $retval;
 	}
-
+	sp_debug('Starting upload: ' . $file_path);
+	
 	ini_set('max_execution_time', 60*60);
 	add_post_meta($post_id, 'sp_archive_uploading', $file_path);
 	$sermon_words = sp_get_sermon_words();
@@ -1100,9 +1006,13 @@ function sp_do_archive_upload($post_id, $file_path)
 		$series_post = get_post($series_id);
 		$series_name = $series_post->post_name;
 	}
+	
+	// unpublished posts can have an empty slug.
 	$sermon_post = get_post($post_id);
 	$sermon_name = $sermon_post->post_name;
-
+	if (empty($sermon_name)) $sermon_name = $sermon_post->post_title;
+	if (empty($sermon_name)) $sermon_name = 'untitled--' . $sermon_post->post_date;
+	
 	// first we check to see if an identifier is already set in the post metadata
 	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
 	if (empty($identifier))
@@ -1114,7 +1024,8 @@ function sp_do_archive_upload($post_id, $file_path)
 		$identifier = strtolower($identifier);
 		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
 	}
-
+	sp_debug('Identifier: ' . $identifier);
+	
 	// now we compute all important archive.org fields
 	$archive_server = 'http://s3.us.archive.org';
 	$metadata = Array(
