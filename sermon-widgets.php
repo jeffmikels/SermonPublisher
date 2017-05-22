@@ -102,32 +102,35 @@ class SP_SeriesInfoWidget extends WP_Widget
 		$sermons = sp_get_sermons_by_series($series_page_id);
 		
 		// compute the sermon stats string
+		$count_text = '';
+		$stats_html = '';
 		if (sp_is_sermon())
 		{
-			if ((count($sermons) - 1) == 0) $count_text = 'are no other ' . $plural;
-			elseif ((count($sermons) - 1) == 1) $count_text = 'is one other ' . $singular;
-			else $count_text = sprintf('are %d other %s', count($sermons) - 1, $plural);
-			$count_text = "There $count_text posted in this series.";
+			$sermon_count = count($sermons)-1;
+			if ($sermon_count == 0) $count_text = 'are no other ' . $plural;
+			elseif ($sermon_count == 1) $count_text = 'is one other ' . $singular;
+			else $count_text = sprintf('are %d other %s', $sermon_count, $plural);
 			
 			$stats_html = <<<EOF
 				<p class="sp_caption">
-					This $singular is part of a series called <a href="$series_permalink" class="sp_series_link"><strong>$series_page->post_title</strong></a>. $count_text
-				</p>
+					This $singular is part of a series called <a href="$series_permalink" class="sp_series_link"><strong>$series_page->post_title</strong></a>. 
 EOF;
 		}
 		else
 		{
-			if ((count($sermons) - 1) == 0) $count_text = 'are no ' . $plural;
-			elseif ((count($sermons) - 1) == 1) $count_text = 'is one ' . $singular;
-			else $count_text = sprintf('are %d %s', count($sermons) - 1, $plural);
-			$count_text = "There $count_text posted in this series.";
+			$sermon_count = count($sermons);
+			if ($sermon_count == 0) $count_text = 'are no ' . $plural;
+			elseif ($sermon_count == 1) $count_text = 'is one ' . $singular;
+			else $count_text = sprintf('are %d %s', $sermon_count, $plural);
 			
 			$stats_html = <<<EOF
 				<p class="sp_caption">
-					You are viewing the $singular series called <a href="$series_permalink" class="sp_series_link"><strong>$series_page->post_title</strong></a>. $count_text
-				</p>
+					You are viewing the $singular series called <a href="$series_permalink" class="sp_series_link"><strong>$series_page->post_title</strong></a>. 
 EOF;
 		}
+		
+		$count_text = "There $count_text posted in this series.";
+		$stats_html .= "$count_text</p>";
 		
 		// start showing widget results
 		$widget_title = '';
