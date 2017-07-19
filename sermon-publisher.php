@@ -114,10 +114,15 @@ add_filter('the_content', 'sp_series_content');
 // add media player to sermon pages
 function sp_sermon_content($content)
 {
+	// ignore this filter for non-sermon post types
 	if(! sp_is_sermon()) return $content;
-	$series_graphic = sp_add_series_graphic('');
-	$media_player = sp_add_media_player('',false);
-	$downloads = sp_add_downloads('');
+	
+	// ignore this filter if we are sending a feed of posts
+	if (!is_single() && !is_page()) return $content;
+	
+	$series_graphic = sp_add_series_graphic(''); // will return nothing if there is a video
+	$media_player = sp_add_media_player('',false); // will return video player or audio player or both
+	$downloads = sp_add_downloads(''); // will return a list of downloads
 	
 	return $series_graphic . $media_player . $downloads . $content;
 }
@@ -529,6 +534,7 @@ function sp_has_video()
 	$youtube_link = get_post_custom_values('youtube_link');
 	if (!empty($youtube_link)) return True;
 	
+	// check for video enclosure
 	$enclosures = get_post_custom_values('enclosure');
 	$video_extensions = array('.mp4','.ogv','webm');
 	if ($enclosures)
@@ -537,9 +543,11 @@ function sp_has_video()
 		{
 			$encdata = explode("\n",$e);
 			$url = $encdata[0];
-			if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
+			if (preg_match('/mp4$|ogv$|webm$/', $url)) return True;
 		}
 	}
+	
+	// neither returned true, so we return false
 	return False;
 }
 
