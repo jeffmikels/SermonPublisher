@@ -47,6 +47,12 @@ if ($youtube_link)
 	else $video_id = $youtube_link;
 }
 
+
+// this is a slow operation on the server
+// Instead of doing it server side, we shift to do it
+// on the client. At this point, we only need to see if
+// the post 'claims' to have media files and not
+// if those media files actually exist.
 if ($enclosures)
 {
 	foreach ($enclosures as $enclosure)
@@ -56,8 +62,9 @@ if ($enclosures)
 		$encdata = explode("\n",$enclosure);
 		$url = trim($encdata[0]);
 
-		// check to see if url actually exists
-		if (! sp_url_exists($url)) continue;
+		// DEPRECATED: check to see if url actually exists
+		// NEW: we assume that media files actually exist
+		// if (! sp_url_exists($url)) continue;
 
 		$ext = substr($url, -4);
 		if (in_array($ext, array('.flv','.ogv','.mp4','.webm'))) $has_video = 1;
