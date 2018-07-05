@@ -18,6 +18,7 @@ class SP_SeriesInfoWidget extends WP_Widget
 	public function form( $instance ) {
 		// outputs the options form on admin
 		$title = ! empty( $instance['title'] ) ? $instance['title'] : esc_html__( '', 'text_domain' );
+		$show_graphic = ! empty( $instance['show_graphic'] ) ? $instance['show_graphic'] : 0;
 		$show_title = ! empty( $instance['show_title'] ) ? $instance['show_title'] : 0;
 		$show_content = ! empty( $instance['show_content'] ) ? $instance['show_content'] : 0;
 		
@@ -29,6 +30,14 @@ class SP_SeriesInfoWidget extends WP_Widget
 		<br /><small>This will be ignored if the next Show Series Title checkbox is checked.</small>
 		</p>
 		
+		<!-- Display Series Graphic? -->
+		<p>
+		<label for="<?php echo esc_attr( $this->get_field_id( 'show_graphic' ) ); ?>"><?php esc_attr_e( 'Show Series Graphic?', 'text_domain' ); ?>
+		<input id="<?php echo esc_attr( $this->get_field_id( 'show_graphic' ) ); ?>" name="<?php echo esc_attr( $this->get_field_name( 'show_graphic' ) ); ?>" type="checkbox" value="1" <?php if($show_graphic == 1) echo 'checked="checked"'; ?>>
+		</label>
+		<br /><small>If this box is checked, the series title will be shown instead of the widget heading.</small>
+		</p>
+
 		<!-- Display Series Title? -->
 		<p>
 		<label for="<?php echo esc_attr( $this->get_field_id( 'show_title' ) ); ?>"><?php esc_attr_e( 'Show Series Title?', 'text_domain' ); ?>
@@ -59,6 +68,7 @@ class SP_SeriesInfoWidget extends WP_Widget
 		// processes widget options to be saved
 		$instance = array();
 		$instance['title'] = ( ! empty( $new_instance['title'] ) ) ? strip_tags( $new_instance['title'] ) : '';
+		$instance['show_graphic'] = ( ! empty( $new_instance['show_graphic'] ) ) ? $new_instance['show_graphic'] : 0;
 		$instance['show_title'] = ( ! empty( $new_instance['show_title'] ) ) ? $new_instance['show_title'] : 0;
 		$instance['show_content'] = ( ! empty( $new_instance['show_content'] ) ) ? $new_instance['show_content'] : 0;
 		return $instance;
@@ -143,6 +153,7 @@ EOF;
 		}
 		
 		// series image
+		if ( ! empty( $instance['show_graphic'] ) && $instance['show_graphic']==1 )
 		echo <<<EOF
 			<img class="sp_thumb" src="$series_thumbnail[0]" />
 EOF;

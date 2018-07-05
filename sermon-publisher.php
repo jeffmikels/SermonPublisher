@@ -637,8 +637,13 @@ function sp_get_featured_series()
 function sp_get_all_series()
 {
 	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
-
 }
+
+function sp_get_all_sermons()
+{
+	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_sermon', 'orderby' => 'post_date', 'order' => 'DESC' ) );
+}
+
 
 
 function sp_get_sermon_words()
@@ -708,6 +713,11 @@ function sp_admin_menu()
 	add_options_page('Sermon Publisher Options', 'Sermon Publisher', 'manage_options', 'sermon-publisher-options', 'sp_options_page');
 }
 
+function sp_register_options()
+{
+	register_setting('sp_options','sp_options'); // one group to store all options as an array
+}
+
 function sp_options_page()
 {
 	if ( !current_user_can('manage_options') ) wp_die( __('You do not have sufficient permissions to access this page.' ) );
@@ -725,6 +735,25 @@ function sp_options_page()
 				Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
 				It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
 			</p>
+		</div>
+		
+		<div class="sp_instructions">
+			<p>
+				This plugin provides three shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery].
+			</p>
+			<ul>
+				<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
+				<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
+				<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
+			</ul>
+			<p>
+				Each shortcode provides additional options:
+			</p>
+			<ul>
+				<li><code>before</code>: HTML to display before the shortcode output.</li>
+				<li><code>after</code>: HTML to display after the shortcode output.</li>
+				<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image has text on the right, left, or in an overlay element.</li>
+			</ul>
 		</div>
 
 		<?php ini_set('max_execution_time', '300'); ?>
@@ -862,16 +891,117 @@ function sp_options_page()
 					</td>
 				</tr>
 				<?php endforeach; ?>
+				
+				<!-- CHART OF SERMONS WITH FILES THAT CAN BE HOSTED ON ARCHIVE.ORG -->
+				<!-- CHECKBOX FOR HOSTING FILES ON ARCHIVE.ORG -->
 
 			</table>
 
 			<?php submit_button(); ?>
 
 		</form>
+		
+		<hr />
+		<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button> (this only uploads files) <br /><br />
+		<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button> (this removes local files if they exist on archive.org)
+		<div id="sp-host-remotely-results" style="width:100%;max-width:100%;overflow:scroll;box-sizing:border-box;padding:20px;background-color:#efe;white-space:pre;font-family:monospace;border:0;font-size:8pt;"></div>
+		
 	</div>
+	
+	<script>
+		
+		var log_box = document.getElementById('sp-host-remotely-results');
+		
+		function sp_ajax_log(s) {
+			log_box.innerHTML = log_box.innerHTML + '<br />' + 'LOG: ' + JSON.stringify(s)
+		}
+		
+		
+		jQuery(document).ready(function($){
+			
+			function sp_chain_host_remote_requests(action, posts, current_id) {
+				if (typeof(action) == 'undefined' || action == '') return;
+				if (typeof(current_id) == 'undefined') return;
+			
+				if (current_id >= posts.length){
+					sp_ajax_log('DONE');
+					return;
+				}
 
+				var id = posts[current_id]['ID'];
+				sp_ajax_log('PROCESSING #' + id);
+				sp_ajax_log('GUID: ' + posts[current_id]['guid']);
+			
+				$.ajax({
+					url: ajaxurl,
+					data: {'action':action, 'post_id': id},
+					method: 'POST',
+					success: function(response){
+						console.log(response);
+						sp_ajax_log(response)
+					},
+					complete: function(){
+						current_id++;
+						sp_chain_host_remote_requests(action, posts, current_id);
+					}
+				})
+			}
+			
+			function sp_get_sermons(callback){
+				// first, we get all the post ids here
+				$.ajax({
+					url: ajaxurl,
+					data: {'action':'sp_get_sermons'},
+					method: 'POST',
+					success: function(sermons){
+						console.log(sermons);
+						sp_ajax_log('FOUND ' + sermons.length + ' sermons');
+						callback(sermons)
+					}
+				})
+			}
+			
+			$('#sp-upload-all').click(function(e){
+				sp_ajax_log('UPLOADING ALL LOCAL SERMON FILES TO ARCHIVE.ORG');
+				sp_get_sermons(function(sermons){
+					sp_chain_host_remote_requests('sp_upload', sermons, 0);
+				})
+				
+			})
+			
+			$('#sp-host-remotely').click(function(e){
+				sp_ajax_log('REMOVING LOCAL FILES IF THEY EXIST ON ARCHIVE.ORG');
+				sp_get_sermons(function(sermons){
+					sp_chain_host_remote_requests('sp_host_remotely', sermons, 0);
+				})
+			})
+		})
+	</script>
+	
 	<?php
 }
+
+add_action('wp_ajax_sp_get_sermons', 'sp_ajax_get_sermons');
+function sp_ajax_get_sermons()
+{
+	wp_send_json(sp_get_all_sermons());
+}
+
+add_action('wp_ajax_sp_host_remotely', 'sp_ajax_host_remotely');
+function sp_ajax_host_remotely()
+{
+	$post_id = $_POST['post_id'];
+	if (empty($post_id)) $retval = ['error' => 1, 'msg' => 'no post id submitted'];
+	
+	else {
+		sp_debug('HOSTING REMOTELY FOR ' . $post_id);
+		$retval = sp_remove_local_files($post_id);
+	}
+
+	sp_debug($retval);
+	wp_send_json($retval);
+}
+
 
 add_action( 'wp_ajax_sp_upload', 'sp_ajax_upload_listener' );
 function sp_ajax_upload_listener()
@@ -894,7 +1024,7 @@ function sp_ajax_upload_listener()
 	{
 		$retval = array();
 		
-		//attempt to upload all the files
+		//attempt to upload all the files if needed
 		$previous_uploads = array();
 		$args = array(
 			'post_parent' => $post_id,
@@ -916,8 +1046,6 @@ function sp_ajax_upload_listener()
 				{
 					$already_uploaded = True;
 					sp_debug('ALREADY UPLOADED');
-					$retval['error'] = 1;
-					$retval['msg'] = $attachment_path . ' was already uploaded';
 				}
 			}
 			if (! $already_uploaded)
@@ -926,9 +1054,18 @@ function sp_ajax_upload_listener()
 				if ($res['error']) $had_error = True;
 				$retval[] = $res;
 			}
+
+			
+			// always upload even if the file has been uploaded before
+			// $res = sp_do_archive_upload($post_id, $attachment_path);
+			// if ($res['error']) $had_error = True;
+			// $retval[] = $res;
 		}
 	}
-	if (! $had_error && $remove_local) sp_remove_local_files($post_id);
+	if (! $had_error && $remove_local)
+	{
+		$retval = sp_remove_local_files($post_id);
+	}
 	sp_debug($retval);
 	wp_send_json($retval);
 }
@@ -937,6 +1074,8 @@ function sp_ajax_upload_listener()
 // re-link local enclosures to remote files
 function sp_remove_local_files($post_id)
 {
+	$retval = array('error' => 0, 'msg' => '');
+	
 	sp_debug('sp_remove_local_files');
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
 	
@@ -950,6 +1089,8 @@ function sp_remove_local_files($post_id)
 
 	foreach ($archive_completed_uploads as $acu)
 	{
+		$local_files_to_delete = array();
+		
 		// check to see if this actually exists on archive.org
 		if (sp_url_exists($acu))
 		{
@@ -966,9 +1107,8 @@ function sp_remove_local_files($post_id)
 					$encdata = explode("\n", $oldenc_normalized);
 					$oldurl = $encdata[0];
 
-					// does this enclosure go with this archive.org file?
-					// if not, move on to the next enclosure
-					if (basename($oldurl) != basename($acu)) continue;
+					// does this enclosure go with this archive.org file? (archive.org files will have been urlencoded)
+					if (basename($oldurl) != basename($acu) && urlencode(basename($oldurl)) != basename($acu)) continue;
 
 					// this enclosure url will be replaced by the archive.org url
 					$encdata[0] = $acu;
@@ -978,30 +1118,44 @@ function sp_remove_local_files($post_id)
 					// replace the enclosure
 					delete_post_meta($post_id, $key, $oldenc);
 					add_post_meta($post_id, $key, $newenc);
+					
+					$retval['msg'] .= '<br />' . $acu . ' is now hosted at archive.org';
+					
+					$local_files_to_delete[] = basename($oldurl);
 				}
 			}
 			
 			// since this file is successfully hosted on archive.org, delete local attachments that match it
 			// run through all attachments to remove the one which matches $oldurl
-			$basename = basename($acu);
-			sp_debug('DELETING LOCAL FILES MATCHING: ' . $basename);
+			sp_debug('DELETING LOCAL FILES MATCHING: ' . basename($acu));
 			
+			// process all the attachments for this post and delete the ones matching $local_files_to_delete
 			foreach ($previous_uploads as $pu)
 			{
 				$upload_file = basename(wp_get_attachment_url($pu->ID));
-				if ($upload_file == $basename)
+				sp_debug('CHECKING: ' . $upload_file);
+				foreach ($local_files_to_delete as $file_to_delete)
 				{
-					sp_debug('FOUND: ' . $upload_file);
-					wp_delete_attachment($pu->ID, True);
+					sp_debug('CHECKING: ' . $file_to_delete);
+					
+					if ($upload_file == $file_to_delete)
+					{
+						sp_debug('MATCHED: ' . $file_to_delete);
+						wp_delete_attachment($pu->ID, True);
+						
+						$retval['msg'] .= '<br />' . $basename . ' was deleted from this site.';
+					}
 				}
 			}
 		}
+		else
+		{
+			$retval['error'] = 1;
+			$retval['msg'] .= '<br />' . $acu . ' cannot be found on archive.org. Double-check the filenames for invalid characters.';
+			sp_debug($acu . ' cannot be found on archive.org. Double-check the filenames for invalid characters.');
+		}
 	}
-}
-
-function sp_register_options()
-{
-	register_setting('sp_options','sp_options'); // one group to store all options as an array
+	return $retval;
 }
 
 function sp_queue_archive_upload($post_id, $file_path)
@@ -1013,7 +1167,6 @@ function sp_queue_archive_upload($post_id, $file_path)
 // this function is called by ajax, so we want to return json
 function sp_do_archive_upload($post_id, $file_path)
 {
-	sp_debug('testing');
 	$retval = array();
 	$curl_debug = '';
 	
@@ -1055,9 +1208,16 @@ function sp_do_archive_upload($post_id, $file_path)
 		// no identifier is set, so we need to generate one and hope it is unique
 		// identifier pattern looks like this blog_domain.series_slug.post_slug
 		// identifiers are S3 buckets so they must be lowercase letters, numbers, and periods
+		// identifiers must match this pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{4,100}$
+		// but we don't want the first or final character to be a period
 		$identifier = $domain . '--' . $series_name . '--' . $sermon_name;
 		$identifier = strtolower($identifier);
 		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
+		$identifier = preg_replace('/^\./','', $identifier);
+		$identifier = preg_replace('/\.$/','', $identifier);
+		
+		// identifier can only be 100 characters long
+		$identifier = substr($identifier, 0, 100);
 	}
 	sp_debug('Identifier: ' . $identifier);
 	

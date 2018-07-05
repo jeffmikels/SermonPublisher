@@ -85,7 +85,17 @@ function sp_sermon_media_meta_setup()
 	$upload_gb = min($max_upload, $max_post);
 
 	global $post;
+	// check if this post is connected to an archive.org item
+	$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
+	
+	
+	$upload_purposes = array('video','audio','notes','manuscript','slides', 'other');
+	$html = '';
+	$html .= '<p class="description">Locally Hosted Files</p>';
+
+	// handle attached files
 	$attached_files = array();
+	$attachment_ids = array();
 	if ($post->ID)
 	{
 		$args = array(
@@ -96,14 +106,31 @@ function sp_sermon_media_meta_setup()
 		$attached_files = get_children($args);
 	}
 	
-	// check if this post is connected to an archive.org item
-	$identifier = get_post_meta($post->ID, 'sp_archive_identifier', True);
+	foreach($attached_files as $af)
+	{
+		$attachment_ids[] = $af->ID;
+	}
 	
+	// see if enclosures are hosted locally and convert them to attachments
+	// foreach (get_post_meta($post->ID, 'enclosure') as $enclosure)
+	// {
+	// 	print_r($enclosure);
+	// 	$enclosure_data = explode("\n", $enclosure);
+	// 	$enclosure_url = $enclosure_data[0];
+	//
+	// 	// is this enclosure also a local post?
+	// 	$args = array(
+	// 		'post_type' => 'attachment',
+	// 		'guid' => $enclosure_url,
+	// 	);
+	// 	print_r($args);
+	// 	// $p = get_posts($args);
+	// 	// print_r($p);
+	// }
 	
-	$upload_purposes = array('video','audio','notes','manuscript','slides', 'other');
-	$html = '';
-	$html .= '<p class="description">Locally Hosted Files</p>';
-
+	// $t = get_post(1108);
+	// print_r($t);
+	
 	if (! $attached_files)
 	{
 		$html .= "<p>NO FILES ATTACHED TO THIS POST</p>";
@@ -121,7 +148,7 @@ function sp_sermon_media_meta_setup()
 		$specified_enclosures = get_post_meta($post->ID, 'enclosure');
 
 		$html .= '<div class="sp_previous_uploads">';
-		$html .= '<table class="sermon-media-table"><tr><th>DEL?</th><th>FILE</th><th>PURPOSE</th></tr>';
+		$html .= '<table class="sermon-media-table"><tr><th>FILE</th><th>PURPOSE</th><th>DELETE</th></tr>';
 
 		foreach ($attached_files as $af)
 		{
@@ -159,9 +186,9 @@ function sp_sermon_media_meta_setup()
 			if (strlen($attachment_name) <= 30) $attachment_shortname = $attachment_name;
 			else $attachment_shortname = substr($attachment_name, 0, 20) . '...' . substr($attachment_name, -7);
 			$html .= '<tr>';
-			$html .= '<td><input name="sp_media_delete[' . $af->ID . ']" value="yes" type="checkbox" /></td>';
 			$html .= '<td><span class="sp-media-name" title="'.$attachment_name.'">' . $attachment_shortname . '</span></td>';
 			$html .= '<td><span class="sp-media-purpose">' . $attachment_purpose . '</span></td>';
+			$html .= '<td><input name="sp_media_delete[' . $af->ID . ']" value="yes" type="checkbox" onclick="return ! this.checked || confirm(\'The file &quot;'.$attachment_shortname.'&quot; will be deleted. Are you sure?\');"  /></td>';
 			$html .= '</tr>';
 		}
 		$html .= '</table>';
@@ -206,7 +233,7 @@ function sp_sermon_media_meta_setup()
 			{
 				$html .= '<div><button class="button button-primary" id="sp-button-remove-local" style="width:100%;">Host Files from Archive.org</button><br /><small>This button will switch hosting from your site to archive.org and update the links here so they refer to the files there.</small></div>';
 			}
-			$html .= '<div class="sp-warning" style="display:none;"><span class="spinner">&nbsp;</span>Sending files to Archive.org. Do not close this browser window until the uploads are done.</div></div>';
+			$html .= '<div class="sp-warning" style="display:none;"><span class="throbber"></span><div class="sp-warning-msg"></div></div></div>';
 		}
 		else
 		{
@@ -226,40 +253,51 @@ function sp_upload_button_handler()
 	// sp_upload_button_handler
 
 	jQuery(document).ready(function($){
-		var sp_upload_data = {
-			'action': 'sp_upload',
-			'post_id': <?php echo get_the_ID(); ?>
-		};
+		
+		var post_id = '<?php echo get_the_ID(); ?>';
+		
+		// var sp_upload_data = {
+		// 	'action': 'sp_upload',
+		// 	'post_id': <?php echo get_the_ID(); ?>
+		// };
 		
 		
 		// REMOVE LOCAL FILES
 		$('#sp-button-remove-local').click(function(e)
 		{
-			e.preventDefault();
-			//if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
 
-			// trigger the remove_local action
-			data.remove_local = 1;
+			// UNUSED NOW - trigger the remove_local action
+			// sp_upload_data.action = 'sp_host_remotely';
+			// sp_upload_data.remove_local = 1;
+
+			e.preventDefault();
+			if ( ! confirm('Are you sure?\n\nIf you click OK, I will make sure all files uploaded to archive.org are hosted from there and removed from your Wordpress Media Library.')) return false;
+
 
 			elem = $(this);
 			$('.button').addClass('disabled');
-			$('#sp-archive-submit-button-container .spinner').css('display','inline');
+			$('#sp-archive-submit-button-container .throbber').show();
 			$('#sp-archive-submit-button-container .sp-warning').slideDown();
+			$('#sp-archive-submit-button-container .sp-warning-msg').html('Sending files to Archive.org. Do not close this browser window until the uploads are done.');
+			
 
 			$.ajax({
 				url: ajaxurl,
-				data: sp_upload_data,
+				data: {
+					'action': 'sp_host_remotely',
+					'post_id': post_id
+				},
 				method: 'POST',
 				success: function(response){
 					console.log(response);
 					if (! response.error)
 					{
 						setTimeout(function(){document.location.reload()}, 1000);
-						$('#sp-archive-submit-button-container .sp-warning').html('Success! Reloading page!')
+						$('#sp-archive-submit-button-container .sp-warning-msg').html('Success! Reloading page!')
 					}
 					else
 					{
-						$('#sp-archive-submit-button-container .sp-warning').html('There was an error removing local files.');
+						$('#sp-archive-submit-button-container .sp-warning-msg').html('Error Message:<br />' . response.msg);
 					}
 				},
 				error: function(response){
@@ -267,7 +305,7 @@ function sp_upload_button_handler()
 				},
 				complete: function(){
 					$('.button').removeClass('disabled');
-					$('#sp-archive-submit-button-container .spinner').css('display','');
+					$('#sp-archive-submit-button-container .throbber').hide();
 				}
 			});
 		});
@@ -276,20 +314,25 @@ function sp_upload_button_handler()
 		// DO UPLOAD
 		$('#sp-button-upload').click(function(e)
 		{
+			// sp_upload_data.action = 'sp_upload';
 			
 			e.preventDefault();
 			if ( ! confirm('If you have unsaved changes, you should hit CANCEL now and hit the "Update" button or they won\'t get reflected in the archive.org item.\n\nIf you are ready to upload, click OK now.')) return false;
 
 			elem = $(this)
 			$('.button').addClass('disabled');
-			$('#sp-archive-submit-button-container .spinner').css('display','inline');
+			$('#sp-archive-submit-button-container .throbber').show();
 			$('#sp-archive-submit-button-container .sp-warning').slideDown();
+			$('#sp-archive-submit-button-container .sp-warning-msg').html('Sending files to Archive.org. Do not close this browser window until the uploads are done.');
 
 
 			// since 2.8 ajaxurl is always defined in the wordpress admin header and points to admin-ajax.php
 			$.ajax({
 				url: ajaxurl,
-				data: sp_upload_data,
+				data: {
+					'action': 'sp_upload',
+					'post_id': post_id
+				},
 				method: 'POST',
 				success: function(response)
 				{
@@ -324,24 +367,24 @@ function sp_upload_button_handler()
 					
 					if (had_error)
 					{
-						$('#sp-archive-submit-button-container .sp-warning').html('There was an error uploading to archive.org:<br />' + err_msg.join('<br />'));
+						$('#sp-archive-submit-button-container .sp-warning-msg').html('There was an error uploading to archive.org:<br />' + err_msg.join('<br />'));
 					}
 					else
 					{
 						setTimeout(function(){document.location.reload()}, 3000);
-						$('#sp-archive-submit-button-container .sp-warning').html('SUCCESS! Reloading page in 3 seconds');
+						$('#sp-archive-submit-button-container .sp-warning-msg').html('SUCCESS! Reloading page in 3 seconds');
 					}
 					// setTimeout(function(){document.location.reload()}, 3000);
 				},
 				error: function(response)
 				{
 					console.log(response);
-					$('#sp-archive-submit-button-container .sp-warning').html('Error');
+					$('#sp-archive-submit-button-container .sp-warning-msg').html('Error');
 				},
 				complete: function()
 				{
 					$('.button').removeClass('disabled');
-					$('#sp-archive-submit-button-container .spinner').css('display','');
+					$('#sp-archive-submit-button-container .throbber').hide();
 				}
 			});
 		});
@@ -377,7 +420,6 @@ function sp_sermon_meta_save($post_id)
 	// SERMON SERIES METADATA
 	// $current_data = get_post_meta($post_id, 'sermon_series', TRUE);
 	$new_data = $_POST['sermon_series'];
-	// sp_sermon_meta_clean($new_data);
 	
 	if (-1 == $new_data) delete_post_meta($post_id, 'sermon_series');
 	elseif (! update_post_meta($post_id,'sermon_series',$new_data))
@@ -441,7 +483,10 @@ function sp_sermon_meta_save($post_id)
 		// Check if the type is supported. If not, throw an error.
 		if(in_array($uploaded_type, $supported_types))
 		{
-
+			
+			// high level api attaches files improperly
+			// $attachment_id = media_handle_upload('sp_sermon_media', $post_id);
+			
 			// Use the WordPress API to upload the file
 			$upload = wp_handle_upload($_FILES['sp_sermon_media'], array('test_form'=>false));
 
@@ -451,12 +496,18 @@ function sp_sermon_meta_save($post_id)
 			}
 			else
 			{
+				// $attachment = get_post($attachment_id);
+				// $file_path = get_attached_file($attachment_id);
+
 				// the file was uploaded successfully
 				// queue the archive.org upload if needed
-				$options = get_option('sp_options');
-				if (! empty($options['archive_upload']) && $options['archive_upload'] == '1') sp_queue_archive_upload($post_id, $upload['file']);
+				
+				// currently not used
+				// $options = get_option('sp_options');
+				// if (! empty($options['archive_upload']) && $options['archive_upload'] == '1') sp_queue_archive_upload($post_id, $upload['file']);
 
-
+				
+				// /* USED ONLY WHEN USING THE LOWER LEVEL UPLOAD APIS
 				// add an attachment
 				$attachment = array(
 					'guid'           => $upload['url'],
@@ -467,6 +518,9 @@ function sp_sermon_meta_save($post_id)
 					'post_type'      => 'attachment'
 				);
 				$attachment_id = wp_insert_attachment($attachment, $upload['file'], $post_id);
+				error_log(json_encode($attachment));
+				error_log(json_encode($attachment_id));
+				// */
 				
 				// THESE FUNCTIONS ARE INTENDED ONLY FOR UPLOADING IMAGES
 				// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
@@ -498,7 +552,7 @@ function sp_sermon_meta_save($post_id)
 		}
 		else
 		{
-			wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed as a media/PDF file.");
+			wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed.");
 		} // end if/else
 	} // end if
 	return $post_id;
