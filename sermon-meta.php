@@ -14,12 +14,12 @@ function sp_sermon_meta_init()
 	// http://codex.wordpress.org/Function_Reference/add_meta_box
 
 	// add a meta box for sermon pages
-	foreach (array('sp_sermon') as $type)
-	{
-		add_meta_box('sp_sermon_series_meta', sprintf('%s Series', ucwords($singular)), 'sp_sermon_series_meta_setup', $type, 'side', 'high');
-		add_meta_box('sp_sermon_youtube_meta', sprintf('%s YouTube', ucwords($singular)), 'sp_sermon_youtube_meta_setup', $type, 'side', 'high');
-		add_meta_box('sp_sermon_media_meta', sprintf('%s Media', ucwords($singular)), 'sp_sermon_media_meta_setup', $type, 'side', 'high');
-	}
+	add_meta_box('sp_sermon_series_meta', sprintf('%s Series', ucwords($singular)), 'sp_sermon_series_meta_setup', 'sp_sermon', 'side', 'high');
+	add_meta_box('sp_sermon_youtube_meta', sprintf('%s YouTube', ucwords($singular)), 'sp_sermon_youtube_meta_setup', 'sp_sermon', 'side', 'high');
+	add_meta_box('sp_sermon_media_meta', sprintf('%s Media', ucwords($singular)), 'sp_sermon_media_meta_setup', 'sp_sermon', 'side', 'high');
+	
+	// add a meta box for series groups
+	add_meta_box('sp_series_group_meta', 'Series in This Group',  'sp_series_group_meta_setup', 'sp_series_group', 'side', 'high');
 
 	// add podcasting meta box to sermon pages if podcasting plugin is installed;
 	if (is_plugin_active('podcasting/podcasting.php') || defined('PODCASTING_VERSION'))
@@ -30,6 +30,7 @@ function sp_sermon_meta_init()
 
 	// add a callback function to save any data a user enters in
 	add_action('save_post','sp_sermon_meta_save',999);
+	add_action('save_post','sp_series_group_meta_save',999);
 	add_action('admin_footer', 'sp_upload_button_handler');
 }
 
@@ -557,11 +558,193 @@ function sp_sermon_meta_save($post_id)
 	} // end if
 	return $post_id;
 }
-function sp_allow_file_uploads() {
-    echo ' enctype="multipart/form-data"';
-} // end update_edit_form
 
+function sp_allow_file_uploads()
+{
+	echo ' enctype="multipart/form-data"';
+} // end update_edit_form
 add_action('post_edit_form_tag', 'sp_allow_file_uploads');
+
+// uses vuejs
+function sp_series_group_meta_setup()
+{
+	global $post;
+
+	// using an underscore prevents the meta variable
+	// from showing up in the custom fields section
+	$selected_series = get_post_meta($post->ID,'series_group_data',TRUE);
+	if (!empty($selected_series)) $selected_series = json_decode($selected_series, TRUE);
+	else $selected_series = [];
+
+	// get all the sermon series
+	$series_pages = get_posts(array ('numberposts'=>-1, 'post_type'=>'sp_series'));
+	
+	?>
+	<style>
+		.series_select_row:hover {background:rgba(0,0,50,.1);}
+		.series_select_link {display:block;text-transform:uppercase;cursor:pointer;}
+		.series_select_buttons {position:absolute;right:5px;}
+		.series_select_buttons a {cursor:pointer;padding:2px 1px;}
+		.series_select_buttons a:hover {background:rgba(0,0,100,.9);color:white;}
+	</style>
+	<div class="sermon_meta_control">
+		<div id="vueapp">
+			<h3>Series in this Group</h3>
+			<div class="series_select_row" v-for="series, index in selected_series">
+				<div class="series_select_buttons">
+					<a v-if="index < selected_series.length-1" class="series_select_button" @click="move_to_bottom(series)">&dArr;</a>
+					<a v-if="index < selected_series.length-1" class="series_select_button" @click="move_down(series)">&darr;</a>
+					<a v-if="index > 0" class="series_select_button" @click="move_up(series)">&uarr;</a>
+					<a v-if="index > 0" class="series_select_button" @click="move_to_top(series)">&uArr;</a>
+				</div>
+				<a class="series_select_link" @click="deselect_series(series)">{{series.post_title}}</a>
+			</div>
+			<h3>Available Series</h3>
+			<div class="series_select_row" v-for="series in available_series">
+				<a class="series_select_link" @click="select_series(series)">{{series.post_title}}</a>
+			</div>
+			<input type="hidden" id="series_group_data" name="series_group_data" v-model="group_data_json"/>
+		</div>
+		<input type="hidden" name="series_group_meta_noncename" value="<?php echo wp_create_nonce(__FILE__); ?>" />
+	</div>
+	
+	<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	<script>
+		var series_pages = <?php echo json_encode($series_pages); ?>;
+		var selected_series = <?php echo json_encode($selected_series); ?>;
+		
+		var app = new Vue({
+			el: '#vueapp',
+			data: {
+				series_pages: series_pages,
+				selected_series: selected_series,
+			},
+			computed: {
+				available_series: function(){
+					return this.series_pages.filter((e) => this.selected_ids.indexOf(e.ID) == -1);
+				},
+				group_data_json: function(){
+					return JSON.stringify(this.selected_series)
+				},
+				selected_ids: function(){
+					return this.selected_series.map((e)=>e.ID);
+				},
+			},
+			methods: {
+				select_series: function(series) {
+					this.selected_series.push(series);
+					// this.selected_ids.push(series.ID);
+				},
+				deselect_series: function(series) {
+					var index = this.selected_series.indexOf(series);
+					if (index == -1) return;
+					// splice the series out of the array
+					this.selected_series.splice(index,1);
+					
+					// also remove from the selected_ids array
+					// index = this.selected_ids.indexOf(series.ID);
+					// if (index == -1 ) return;
+					// this.selected_ids.splice(index,1);
+				},
+				move_up: function(series) {
+					var index = this.selected_series.indexOf(series);
+					if (index <= 0) return;
+					// splice the item out of the array
+					var item = this.selected_series.splice(index,1);
+					// item is now an array with one element;
+					item = item[0];
+					// insert it back into the array at an earlier position
+					this.selected_series.splice(index - 1, 0, item);
+				},
+				move_down: function(series) {
+					var index = this.selected_series.indexOf(series);
+					if (index == -1 || index >= this.selected_series.length-1) return;
+					// splice the item out of the array
+					var item = this.selected_series.splice(index,1);
+					// item is now an array with one element;
+					item = item[0];
+					// insert it back into the array at a later position
+					this.selected_series.splice(index + 1, 0, item);
+				},
+				move_to_bottom: function(series) {
+					var index = this.selected_series.indexOf(series);
+					if (index == -1 || index >= this.selected_series.length-1) return;
+					// splice the item out of the array
+					var item = this.selected_series.splice(index,1);
+					// item is now an array with one element;
+					item = item[0];
+					// insert it back into the array at the bottom
+					this.selected_series.push(item);
+				},
+				move_to_top: function(series) {
+					var index = this.selected_series.indexOf(series);
+					if (index <= 0) return;
+					// splice the item out of the array
+					var item = this.selected_series.splice(index,1);
+					// item is now an array with one element;
+					item = item[0];
+					// insert it back into the array at the top
+					this.selected_series.unshift(item);
+				},
+			},
+			mounted: function() {
+			},
+			updated: function() {
+			}
+		});
+		
+	</script>
+	
+	
+	<?php
+}
+
+function sp_series_group_meta_save($post_id)
+{
+	// Bail if we're doing an auto save
+	if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+
+	// authentication checks
+
+	// make sure data came from our meta box
+	if ( ! isset($_POST['series_group_meta_noncename']) || !wp_verify_nonce($_POST['series_group_meta_noncename'],__FILE__)) return $post_id;
+
+	// check user permissions
+	if ($_POST['post_type'] == 'sp_series_group')
+	{
+		if (!current_user_can('edit_post', $post_id)) return $post_id;
+	}
+	else
+	{
+		if (!current_user_can('edit_post', $post_id)) return $post_id;
+	}
+
+	// authentication passed, save data
+
+	// var types
+	// single: sermon_series[var]
+	// array: sermon_series[var][]
+	// grouped array: sermon_series[var_group][0][var_1], sermon_series[var_group][0][var_2]
+
+	$current_data = get_post_meta($post_id, 'series_group_data', TRUE);
+
+	$new_data = $_POST['series_group_data'];
+
+	sermon_meta_clean($new_data);
+
+	if ($current_data)
+	{
+		if (is_null($new_data)) delete_post_meta($post_id,'series_group_data');
+		else update_post_meta($post_id,'series_group_data',$new_data);
+	}
+	elseif (!is_null($new_data))
+	{
+		add_post_meta($post_id,'series_group_data',$new_data,TRUE);
+	}
+
+	return $post_id;
+}
+
 
 function sp_sermon_meta_clean(&$arr)
 {

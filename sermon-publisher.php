@@ -37,6 +37,31 @@ function sp_custom_sizes( $sizes )
 /** CUSTOM POST TYPES */
 function sp_custom_post_types()
 {
+	register_post_type( 'sp_series_group', array
+	(
+		'labels' => array
+		(
+			'name' => __( 'Series Groups' ),
+			'singular_name' => __( 'Series Group' ),
+			'add_new' => __( 'Add New Series Group' ),
+			'add_new_item' => __( 'Add New Series Group' ),
+			'edit_item' => __( 'Edit Series Group' ),
+			'new_item' => __( 'New Series Group' ),
+			'view_item' => __( 'View Series Group' ),
+			'search_items' => __( 'Search Series Groups' ),
+			'not_found' => __( 'No Series Groups found' ),
+			'not_found_in_trash' => __( 'No Series Groups found in Trash' ),
+		),
+		'public' => true,
+		'has_archive' => true,
+		'rewrite' => array('slug' => 'series_group'),
+		'taxonomies' => array('post_tag'),
+		'publicly_queryable' => true,
+		'exclude_from_search' => false,
+		'menu_position' => 6,
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
+	));
+
 	register_post_type( 'sp_series', array
 	(
 		'labels' => array
