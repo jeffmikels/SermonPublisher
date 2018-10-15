@@ -730,7 +730,7 @@ function sp_series_group_meta_save($post_id)
 
 	$new_data = $_POST['series_group_data'];
 
-	sermon_meta_clean($new_data);
+	sp_sermon_meta_clean($new_data);
 
 	if ($current_data)
 	{

@@ -2,7 +2,7 @@
 /*
 Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
-Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
+Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_group_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
 Author: Jeff Mikels
 Text Domain: sermon-publisher
 Version: 0.4
@@ -126,6 +126,15 @@ include ("sermon-widgets.php");
 
 
 // SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
+
+// create attractive display of series gropus
+function sp_series_group_content($content)
+{
+	if (! sp_is_series_group()) return $content;
+	$content = sp_add_series_in_group($content);
+	return $content;
+}
+add_filter('the_content', 'sp_series_group_content');
 
 // add related sermons to content on series pages
 function sp_series_content($content)
@@ -305,6 +314,43 @@ function sp_add_sermons_in_series($content)
 	return $content . $sermons_html;
 }
 
+function sp_add_series_in_group($content)
+{
+	global $post;
+	$slug = $post->post_name;
+	$id = $post->ID;
+	$selected_series = json_decode(get_post_meta($post->ID,'series_group_data',TRUE));
+
+	if (empty($selected_series)) return $content;
+	
+	
+	$content .= '<div class="sp_series_group_items">';
+	
+	foreach($selected_series as $series)
+	{
+		$link = get_permalink($series->ID);
+		$image_url = get_the_post_thumbnail_url($series->ID, '720');
+		$excerpt = substr(wp_strip_all_tags($series->post_content),0,400);
+		$content .= <<<EOF
+		
+		<a href="$link" class="series-post">
+			<img class="series-image" src="$image_url" />
+			<div class="series-content">
+				<h3 class="series-title">$series->post_title</h3>
+				<p class="series-description">
+					$excerpt...
+				</p>
+			</div>
+		</a>
+		<div class="clear">&nbsp;</div>
+EOF;
+	}
+	
+	$content .= '</div> <!-- end sp_series_group_items -->';
+	return $content;
+	
+}
+
 // SERMON POST MODIFICATIONS
 function sp_add_series_graphic($content)
 {
@@ -437,9 +483,11 @@ function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $aft
 }
 
 
-function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
+function sp_series_group_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
 {
-	$series_posts = sp_get_all_series();
+	$series_posts = sp_get_all_series_groups();
+	if (empty($series_posts)) return;
+	
 	$exclude = explode(',', str_replace(' ', '', $exclude));
 	echo $before;
 	?>
@@ -474,6 +522,51 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 		<?php $counter = ($counter + 1) % 3; ?>
 		<?php endforeach; ?>
 	</div>
+	<div style="clear:both;">&nbsp;</div>
+	
+	<?php
+}
+
+function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
+{
+	$series_posts = sp_get_all_series();
+	if (empty($series_posts)) return;
+	
+	$exclude = explode(',', str_replace(' ', '', $exclude));
+	echo $before;
+	?>
+
+	<div class="series-gallery">
+
+		<?php
+		$classes = array('first','middle','last');
+		$counter = 0;
+		$class = $classes[$counter];
+		?>
+
+
+		<?php foreach ($series_posts as $series): ?>
+		<?php if (in_array($series->ID, $exclude)) continue; ?>
+		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+
+		<div class="series-gallery-item item-<?php echo $class; ?>">
+			<a href="<?php print get_permalink($series->ID); ?>" >
+				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
+				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+				</div>
+				<div class="series-gallery-item-image-overlay">
+					<div class="series-gallery-item-image-caption">
+						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
+						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					</div>
+				</div>
+			</a>
+		</div>
+		<?php $counter = ($counter + 1) % 3; ?>
+		<?php endforeach; ?>
+	</div>
+	<div style="clear:both;">&nbsp;</div>
 
 	<?php
 }
@@ -500,6 +593,18 @@ function sp_gallery_helper($atts)
 	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
 	return ob_get_clean();
 }
+function sp_group_gallery_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_thumb',
+		'before' => '',
+		'after' => '',
+		'exclude' => ''), $atts ) );
+
+	ob_start();
+	sp_series_group_gallery($thumbnail_size, $before, $after, $exclude);
+	return ob_get_clean();
+}
 function sp_full_gallery_helper($atts)
 {
 	extract( shortcode_atts( array(
@@ -509,13 +614,16 @@ function sp_full_gallery_helper($atts)
 		'format' => 'overlay'), $atts ) );
 
 	ob_start();
-
-	$fid = sp_most_recent_series($thumbnail_size, $before, $after, $format);
-	sp_past_series_gallery('sp_thumb','','',$fid);
+	print($before);
+	$fid = sp_most_recent_series($thumbnail_size, '', '', $format);
+	sp_past_series_gallery('sp_thumb','<h2>Series Archive</h2>','',$fid);
+	sp_series_group_gallery('sp_thumb', '<h2>Series Groups</h2>', '', $exclude);
+	print($after);
 	return ob_get_clean();
 }
 add_shortcode('sp_featured', 'sp_featured_helper');
 add_shortcode('sp_gallery', 'sp_gallery_helper');
+add_shortcode('sp_group_gallery', 'sp_group_gallery_helper');
 add_shortcode('sp_full_gallery', 'sp_full_gallery_helper');
 
 
@@ -606,6 +714,21 @@ function sp_is_series($post_id = '')
 	}
 }
 
+function sp_is_series_group($post_id = '')
+{
+	global $post;
+	if (! isset($post) and ! $post_id) return False;
+	if ($post_id)
+	{
+		$p = get_post($post_id);
+		return $p->post_type;
+	}
+	else
+	{
+		return ($post->post_type == 'sp_series_group' && is_single());
+	}
+}
+
 function sp_get_image($post_id, $thumbnail_size)
 {
 	$image_id = get_post_thumbnail_id($post_id);
@@ -657,6 +780,11 @@ function sp_get_featured_series()
 		return sp_get_sermon_series($sermon_id);
 	}
 	return get_posts( array ('post_type' => 'sp_series', 'numberposts'=>1) );
+}
+
+function sp_get_all_series_groups()
+{
+	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series_group', 'orderby' => 'menu_order', 'order' => 'ASC' ) );
 }
 
 function sp_get_all_series()
