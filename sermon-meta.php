@@ -579,6 +579,13 @@ function sp_series_group_meta_setup()
 	// get all the sermon series
 	$series_pages = get_posts(array ('numberposts'=>-1, 'post_type'=>'sp_series'));
 	
+	// add the images to the series page data
+	$images_by_id=[];
+	foreach($series_pages as $key=>$series)
+	{
+		$images_by_id[$series->ID] = get_the_post_thumbnail_url($series->ID, 'sp_poster');
+	}
+	
 	?>
 	<style>
 		.series_select_row:hover {background:rgba(0,0,50,.1);}
@@ -612,6 +619,7 @@ function sp_series_group_meta_setup()
 	<script>
 		var series_pages = <?php echo json_encode($series_pages); ?>;
 		var selected_series = <?php echo json_encode($selected_series); ?>;
+		var images_by_id = <?php echo json_encode($images_by_id); ?>;
 		
 		var app = new Vue({
 			el: '#vueapp',
@@ -687,7 +695,18 @@ function sp_series_group_meta_setup()
 					this.selected_series.unshift(item);
 				},
 			},
-			mounted: function() {
+			mounted: function(){
+				// make sure the titles and details are all in sync
+				var series_by_id = [];
+				series_pages.forEach(function(e){
+					series_by_id[e.ID] = e;
+					series_by_id[e.ID].image = images_by_id[e.ID];
+				});
+				var real_selected_series = [];
+				selected_series.forEach(function(e){
+					real_selected_series.push(series_by_id[e.ID]);
+				});
+				Vue.set(this,'selected_series',real_selected_series);
 			},
 			updated: function() {
 			}
