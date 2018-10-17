@@ -17,6 +17,7 @@ Author URI: http://jeff.mikels.cc
 define('SP_DO_LOG',1);
 define('SP_SHOW_DEBUG',0);
 define('SP_LOG_FILE', dirname(__FILE__) . '/sp_log.log');
+define('SP_EXISTS', 1);
 
 
 /** Add new image sizes */
@@ -670,12 +671,12 @@ function sp_has_video()
 	// check for video enclosure
 	$enclosures = get_post_custom_values('enclosure');
 	$video_extensions = array('.mp4','.ogv','webm');
-	if ($enclosures)
+	if (!empty($enclosures))
 	{
 		foreach ($enclosures as $e)
 		{
 			$encdata = explode("\n",$e);
-			$url = $encdata[0];
+			$url = trim($encdata[0]);
 			if (preg_match('/mp4$|ogv$|webm$/', $url)) return True;
 		}
 	}
