@@ -59,7 +59,9 @@ function sp_custom_post_types()
 		'taxonomies' => array('post_tag'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
-		'menu_position' => 6,
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'series_groups',
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
 	));
 
@@ -84,8 +86,10 @@ function sp_custom_post_types()
 		'rewrite' => array('slug' => 'series'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
-		'menu_position' => 6,
-		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'series',
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
 	));
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
@@ -112,7 +116,9 @@ function sp_custom_post_types()
 		'taxonomies' => array('category'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
-		'menu_position' => 7,
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'sermons',
 		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting', 'excerpt'),
 	) );
 }
@@ -126,10 +132,23 @@ include ("sermon-meta.php");
 include ("sermon-widgets.php");
 
 
+/* REST MODIFICATIONS FOR CUSTOM POST TYPES */
+function sp_rest_prepare_sp_sermon($data, $post, $request) {
+	// $_data = [];
+	// $_data['title'] = $post->post_title;
+	// $_data['json'] = $post->json;
+	// $_data['notification_data'] = $post->data;
+	$data->data['archive_item'] = sp_get_archive_url($post->ID);
+	return $data;
+}
+add_filter("rest_prepare_sp_sermon", 'jmapp_rest_prepare_sp_sermon', 10, 3);
+
+
+
 // SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
 
 // create attractive display of series gropus
-function sp_series_group_content($content)
+function sp_series_group_content($content = '')
 {
 	if (! sp_is_series_group()) return $content;
 	$content = sp_add_series_in_group($content);
@@ -138,7 +157,7 @@ function sp_series_group_content($content)
 add_filter('the_content', 'sp_series_group_content');
 
 // add related sermons to content on series pages
-function sp_series_content($content)
+function sp_series_content($content = '')
 {
 	if (! sp_is_series()) return $content;
 	$content = sp_add_sermons_in_series($content);
@@ -147,7 +166,7 @@ function sp_series_content($content)
 add_filter('the_content', 'sp_series_content');
 
 // add media player to sermon pages
-function sp_sermon_content($content)
+function sp_sermon_content($content = '')
 {
 	// ignore this filter for non-sermon post types
 	if(! sp_is_sermon()) return $content;
@@ -158,8 +177,9 @@ function sp_sermon_content($content)
 	$series_graphic = sp_add_series_graphic(''); // will return nothing if there is a video
 	$media_player = sp_add_media_player('',false); // will return video player or audio player or both
 	$downloads = sp_add_downloads(''); // will return a list of downloads
+	$archive = sp_add_archive_link();
 	
-	return $series_graphic . $media_player . $downloads . $content;
+	return $series_graphic . $media_player . $downloads . $archive . $content;
 }
 add_filter('the_content', 'sp_sermon_content');
 
@@ -246,7 +266,7 @@ function sp_series_archive()
 
 // HELPER FUNCTIONS FOR CONTENT FILTERS
 // SERIES PAGE MODIFICATIONS
-function sp_add_sermons_in_series($content)
+function sp_add_sermons_in_series($content = '')
 {
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
@@ -315,7 +335,7 @@ function sp_add_sermons_in_series($content)
 	return $content . $sermons_html;
 }
 
-function sp_add_series_in_group($content)
+function sp_add_series_in_group($content = '')
 {
 	global $post;
 	$slug = $post->post_name;
@@ -353,7 +373,7 @@ EOF;
 }
 
 // SERMON POST MODIFICATIONS
-function sp_add_series_graphic($content)
+function sp_add_series_graphic($content = '')
 {
 	if (! sp_is_sermon()) return $content;
 	if (has_post_thumbnail()) return $content;
@@ -366,14 +386,14 @@ function sp_add_series_graphic($content)
 }
 
 // add a downloads box on sermon posts
-function sp_add_downloads($content)
+function sp_add_downloads($content = '')
 {
 	$content = sp_make_download_links() . $content;
 	return $content;
 }
 
 // add media player to sermon posts
-function sp_add_media_player($content, $send_to_browser = TRUE)
+function sp_add_media_player($content = '', $send_to_browser = TRUE)
 {
 	global $post;
 	if (!sp_is_sermon()) return $content;
@@ -394,6 +414,48 @@ function sp_add_media_player($content, $send_to_browser = TRUE)
 	}
 }
 
+function sp_add_archive_link($content = '')
+{
+	if (! sp_is_sermon()) return $content;
+	$url = sp_get_archive_url();
+	if (!empty($url))
+	{
+		$content = '<a class="sp-archive-link" href="'.$url.'">' . $url . '</a>' . $content;
+	}
+	return $content;
+}
+
+function sp_get_archive_url($post_id = NULL)
+{
+	global $post;
+	if ($post_id === NULL) $post_id = $post->ID;
+	
+	// if $post_id is empty, we default
+	// to the global post in case this happens inside the loop
+	if (! sp_is_sermon() && empty($post_id)) return '';
+	$enclosures = '';
+	$downloads = '';
+	$output = '';
+	
+	// do we have a metadata item linking to the internet archive?
+	// $ia = get_post_custom_values('sp_archive_item');
+	$ia = get_post_meta($post_id, 'sp_archive_item', true);
+	if (!empty($ia)) return $ia;
+	
+	// do we have any links in the enclosures or downloads?
+	$enclosures = get_post_meta($post_id, 'enclosure');
+	$downloads = array_merge($enclosures, get_post_meta($post_id, 'download'));
+	foreach ($downloads as $d)
+	{
+		$url = explode("\n", $d)[0];
+		if (strpos($url, 'archive.org') !== false)
+		{
+			$ia = dirname($url);
+			return $ia;
+		}
+	}
+	return '';
+}
 
 // GALLERY SHORTCODE DISPLAY FUNCTIONS
 function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='', $format='overlay')
@@ -528,9 +590,9 @@ function sp_series_group_gallery($thumbnail_size = 'sp_thumb', $before = '', $af
 	<?php
 }
 
-function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
+function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '', $limit = -1)
 {
-	$series_posts = sp_get_all_series();
+	$series_posts = sp_get_all_series($limit);
 	if (empty($series_posts)) return;
 	
 	$exclude = explode(',', str_replace(' ', '', $exclude));
@@ -588,10 +650,11 @@ function sp_gallery_helper($atts)
 		'thumbnail_size' => 'sp_thumb',
 		'before' => '',
 		'after' => '',
+		'limit' => -1,
 		'exclude' => ''), $atts ) );
 
 	ob_start();
-	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
+	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude, $limit);
 	return ob_get_clean();
 }
 function sp_group_gallery_helper($atts)
@@ -641,12 +704,13 @@ function sp_make_download_links()
 	$downloads = get_post_custom_values('download');
 	if ($enclosures || $downloads) {
 		$output .= '<div class="download-links">downloads: ';
+		$links = [];
 		if ($enclosures) {
 			foreach ($enclosures as $enclosure) {
 				$encdata = explode("\n",$enclosure);
 				$url = $encdata[0];
 				$formatdata = unserialize($encdata[3]);
-				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${formatdata['format']}</a>";
+				$links[] = "<a class=\"download-link\" href=\"${encdata[0]}\">${formatdata['format']}</a>";
 			}
 		}
 		if ($downloads) {
@@ -654,9 +718,10 @@ function sp_make_download_links()
 				$encdata = explode("\n",$download);
 				$url = $encdata[0];
 				$format = $encdata[1];
-				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
+				$links[] = "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
 			}
 		}
+		$output .= implode(' ', $links);
 		$output .= '</div>';
 	}
 	return $output;
@@ -788,9 +853,10 @@ function sp_get_all_series_groups()
 	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series_group', 'orderby' => 'menu_order', 'order' => 'ASC' ) );
 }
 
-function sp_get_all_series()
+function sp_get_all_series($limit = -1)
 {
-	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
+	
+	return get_posts( array ( 'numberposts'=>$limit, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
 }
 
 function sp_get_all_sermons()
@@ -854,6 +920,10 @@ function sp_log($s)
 	fclose($h);
 }
 
+function sp_sermon_fix_attachments($post_id)
+{
+	$p = get_post($post_id);
+}
 
 /* Add Administration Pages */
 if ( is_admin() )
@@ -907,6 +977,7 @@ function sp_options_page()
 				<li><code>before</code>: HTML to display before the shortcode output.</li>
 				<li><code>after</code>: HTML to display after the shortcode output.</li>
 				<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image has text on the right, left, or in an overlay element.</li>
+				<li><code>limit</code>: controls how many items will be shown in a gallery
 			</ul>
 		</div>
 

@@ -556,6 +556,8 @@ function sp_sermon_meta_save($post_id)
 			wp_die("The file type that you've uploaded (". $uploaded_type .") is not allowed.");
 		} // end if/else
 	} // end if
+	
+	sp_sermon_fix_attachments($post_id);
 	return $post_id;
 }
 
