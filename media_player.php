@@ -19,6 +19,7 @@ else $display = 'none';
 $media_items = Array();
 $enclosures = get_post_custom_values('enclosure');
 $poster = get_post_custom_values('poster');
+$youtube_link = get_post_meta($post->ID, 'youtube_link', TRUE);
 
 if (count($poster) > 0) $poster = $poster[0];
 else $poster = plugin_dir_url( __FILE__ ) . "scripture.jpg";
@@ -28,6 +29,30 @@ else $preload = 'none';
 
 $has_video = 0;
 $has_audio = 0;
+$has_youtube = 0;
+
+// search for youtube video id
+if ($youtube_link)
+{
+	$has_youtube = 1;
+	
+	// youtube shortlinks look like this:
+	// https://youtu.be/WmFvbN6jf5U
+	// youtube long links look like this:
+	// https://www.youtube.com/watch?v=WmFvbN6jf5U
+	// or, the user has posted just the video id
+	$matches = '';
+	if(preg_match('#https://youtu.be/(.*)#', $youtube_link, $matches)) $video_id = $matches[1];
+	elseif(preg_match('#[&?]v=([^&]*)#', $youtube_link, $matches)) $video_id = $matches[1];
+	else $video_id = $youtube_link;
+}
+
+
+// this is a slow operation on the server
+// Instead of doing it server side, we shift to do it
+// on the client. At this point, we only need to see if
+// the post 'claims' to have media files and not
+// if those media files actually exist.
 if ($enclosures)
 {
 	foreach ($enclosures as $enclosure)
@@ -37,8 +62,9 @@ if ($enclosures)
 		$encdata = explode("\n",$enclosure);
 		$url = trim($encdata[0]);
 
-		// check to see if url actually exists
-		if (! sp_url_exists($url)) continue;
+		// DEPRECATED: check to see if url actually exists
+		// NEW: we assume that media files actually exist
+		// if (! sp_url_exists($url)) continue;
 
 		$ext = substr($url, -4);
 		if (in_array($ext, array('.flv','.ogv','.mp4','.webm'))) $has_video = 1;
@@ -62,19 +88,19 @@ if ($enclosures)
 }
 
 // Pick the default media file for flash player: medium, high, audio
-if ($media_items)
+if ($media_items or $has_youtube)
 {
 	if ($display == 'block') $media_player_visible = TRUE;
 
 	array_multisort($media_items);
-	$default_item = $media_items['flash'];
+	$default_item = !empty($media_items['flash']) ? $media_items['flash'] : NULL;
 	$default_title = 'flash';
 	if ( ! $default_item ) {
-		$default_item = $media_items['mp4'];
+		$default_item = !empty($media_items['mp4']) ? $media_items['mp4'] : NULL;
 		$default_title = 'mp4';
 	}
 	if ( ! $default_item ) {
-		$default_item = $media_items['mp3'];
+		$default_item = !empty($media_items['mp3']) ? $media_items['mp3'] : NULL;
 		$default_title = 'mp3';
 	}
 
@@ -83,8 +109,17 @@ if ($media_items)
 	?>
 
 	<div class="media-player">
-
-	<?php if ($has_video): ?>
+	
+	<!-- YouTube media has priority -->
+	<?php if($has_youtube && $video_id): ?>
+		
+		<div class="media-player-title">Video Player</div>
+		
+		<style>.embed-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; } .embed-container iframe, .embed-container object, .embed-container embed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }</style><div class='embed-container'><iframe src='https://www.youtube.com/embed/<?php echo $video_id; ?>' frameborder='0' allowfullscreen></iframe></div>
+		
+	<?php endif;?>
+	
+	<?php if ($has_video && ! $has_youtube): ?>
 
 		<div class="media-player-title">Video Player</div>
 
@@ -109,14 +144,14 @@ if ($media_items)
 				<source src="<?php echo $media_items['ogv'];?>"  type="video/ogg" codecs="theora, vorbis" />
 				<?php endif; ?>
 
-			<!-- Flash fallback for non-HTML5 browsers without JavaScript -->
-			<object type="application/x-shockwave-flash" style="width: <?php echo $player_width; ?>; max-width: 100%; height: <?php echo $height; ?>;"
-						data="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf">
-						<param name="movie" value="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf" />
-						<param name="flashvars" value="controls=true&file=<?php echo $media_items['mp4'];?>" />
-						<!-- Image as a last resort -->
-						<img src="<?php echo $poster; ?>" width="100%" title="No video playback capabilities" />
-			</object>
+				<!-- Flash fallback for non-HTML5 browsers without JavaScript -->
+				<object type="application/x-shockwave-flash" style="width: <?php echo $player_width; ?>; max-width: 100%; height: <?php echo $height; ?>;"
+							data="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf">
+							<param name="movie" value="<?php bloginfo('template_directory'); ?>/mediaelement/flashmediaelement.swf" />
+							<param name="flashvars" value="controls=true&file=<?php echo $media_items['mp4'];?>" />
+							<!-- Image as a last resort -->
+							<img src="<?php echo $poster; ?>" width="100%" title="No video playback capabilities" />
+				</object>
 			</video>
 		</div>
 

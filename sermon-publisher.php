@@ -2,7 +2,7 @@
 /*
 Plugin Name: Jeff's Sermon Publisher
 Plugin URI: none
-Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
+Description: This plugin allows churches to easily publish weekly sermons to their wordpress-based site. Additionally, this plugin provides sample page templates to use in your own themes and three shortcodes to display the most recent series, a gallery of past sermons, and a "full" gallery comprised of both.<p>This plugin provides the following shortcodes: [sp_featured], [sp_gallery], [sp_group_gallery], [sp_full_gallery]. NOTE: I recommend you use the "Podcasting" plugin by TSG for full podcast feed control.
 Author: Jeff Mikels
 Text Domain: sermon-publisher
 Version: 0.4
@@ -15,7 +15,9 @@ Author URI: http://jeff.mikels.cc
 */
 
 define('SP_DO_LOG',1);
+define('SP_SHOW_DEBUG',0);
 define('SP_LOG_FILE', dirname(__FILE__) . '/sp_log.log');
+define('SP_EXISTS', 1);
 
 
 /** Add new image sizes */
@@ -36,6 +38,33 @@ function sp_custom_sizes( $sizes )
 /** CUSTOM POST TYPES */
 function sp_custom_post_types()
 {
+	register_post_type( 'sp_series_group', array
+	(
+		'labels' => array
+		(
+			'name' => __( 'Series Groups' ),
+			'singular_name' => __( 'Series Group' ),
+			'add_new' => __( 'Add New Series Group' ),
+			'add_new_item' => __( 'Add New Series Group' ),
+			'edit_item' => __( 'Edit Series Group' ),
+			'new_item' => __( 'New Series Group' ),
+			'view_item' => __( 'View Series Group' ),
+			'search_items' => __( 'Search Series Groups' ),
+			'not_found' => __( 'No Series Groups found' ),
+			'not_found_in_trash' => __( 'No Series Groups found in Trash' ),
+		),
+		'public' => true,
+		'has_archive' => true,
+		'rewrite' => array('slug' => 'series_group'),
+		'taxonomies' => array('post_tag'),
+		'publicly_queryable' => true,
+		'exclude_from_search' => false,
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'series_groups',
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
+	));
+
 	register_post_type( 'sp_series', array
 	(
 		'labels' => array
@@ -53,13 +82,15 @@ function sp_custom_post_types()
 		),
 		'public' => true,
 		'has_archive' => true,
+		'taxonomies' => array('post_tag'),
 		'rewrite' => array('slug' => 'series'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
-		'menu_position' => 6,
-		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt'),
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'series',
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
 	));
-
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
 	$plural = $sermon_words['plural'];
@@ -85,7 +116,9 @@ function sp_custom_post_types()
 		'taxonomies' => array('category'),
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
-		'menu_position' => 7,
+		'menu_position' => 20,
+		'show_in_rest' => true,
+		'rest_base' => 'sermons',
 		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting', 'excerpt'),
 	) );
 }
@@ -93,132 +126,38 @@ add_action( 'init', 'sp_custom_post_types' );
 
 
 /** META BOX CODE */
-include ("sermon_meta.php");
+include ("sermon-meta.php");
+
+/** WIDGETS CODE */
+include ("sermon-widgets.php");
 
 
-// ADD A NEW SERIES INFO WIDGET
-class SP_SeriesInfoWidget extends WP_Widget
-{
-	public function __construct()
-	{
-		$widget_ops = array('classname' => 'SP_SeriesInfoWidget', 'description' => 'Series information as a widget on series pages and sermon pages. Displays nothing otherwise.');
-		parent::__construct('SP_SeriesInfoWidget', 'Series Info and Thumbnail', $widget_ops);
-	}
-
-	function widget($args, $instance)
-	{
-
-
-		// check to see if this is a sermon or series page.
-		// if it is neither, output nothing at all.
-		if (! sp_is_sermon() and ! sp_is_series()) return;
-
-		// Widget Code Goes Here
-		extract($args, EXTR_SKIP);
-		global $post;
-
-		$sermon_words = sp_get_sermon_words();
-		$singular = $sermon_words['singular'];
-		$plural = $sermon_words['plural'];
-
-		$thumbnail_size = 'sp_thumb';
-
-		echo $before_widget;
-
-		if (sp_is_sermon())
-		{
-			// on a sermon page, show information on the current series
-			$series_page_id = get_post_meta($post->ID, 'sermon_series', TRUE);
-			$series_page = get_post($series_page_id);
-			$series_permalink = get_permalink($series_page_id);
-			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
-			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
-			$sermons = sp_get_sermons_by_series($series_page_id);
-
-			if ((count($sermons) - 1) == 0) $countval = 'are no other ' . $plural;
-			elseif ((count($sermons) - 1) == 1) $countval = 'is one other ' . $singular;
-			else $countval = sprintf('are %d other %s', count($sermons) - 1, $plural);
-
-			?>
-
-			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			<p class="sp_caption">This <?php echo $singular; ?> is part of a series called <a href="<?php print $series_permalink; ?>" class="sp_series_link"><strong><?php echo $series_page->post_title; ?></strong></a>. There <?php echo $countval; ?> in this series.</p>
-
-			<?php
-		}
-
-		elseif (sp_is_series())
-		{
-			// on a series page, show the series statistics
-
-			$series_page_id = $post->ID;
-			$series_thumbnail = sp_get_image($series_page_id, $thumbnail_size);
-			// $series_thumbnail = wp_get_attachment_image_src(get_post_thumbnail_id($series_page_id), 'thumbnail');
-			$sermons = sp_get_sermons_by_series($series_page_id);
-
-			if ((count($sermons)) == 0) $countval = 'are no ' . $plural;
-			elseif ((count($sermons)) == 1) $countval = 'is one ' . $singular;
-			else $countval = sprintf('are %d %s', count($sermons), $plural);
-
-			?>
-
-			<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-			<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
-
-			<?php
-		}
-
-		echo $after_widget;
-	}
+/* REST MODIFICATIONS FOR CUSTOM POST TYPES */
+function sp_rest_prepare_sp_sermon($data, $post, $request) {
+	// $_data = [];
+	// $_data['title'] = $post->post_title;
+	// $_data['json'] = $post->json;
+	// $_data['notification_data'] = $post->data;
+	$data->data['archive_item'] = sp_get_archive_url($post->ID);
+	return $data;
 }
-add_action( 'widgets_init', function() {return register_widget("SP_SeriesInfoWidget"); });
+add_filter("rest_prepare_sp_sermon", 'jmapp_rest_prepare_sp_sermon', 10, 3);
 
-
-// ADD A NEW LATEST SERMON WIDGET
-class SP_LatestSermonWidget extends WP_Widget
-{
-	function __construct()
-	{
-		$widget_ops = array('classname' => 'SP_LatestSermonWidget', 'description' => 'Widget to display the most recent sermon with the link and graphic of its series.');
-		parent::__construct('SP_LatestSermonWidget', 'Latest Sermon', $widget_ops);
-	}
-
-	function widget($args, $instance)
-	{
-
-		extract($args, EXTR_SKIP);
-		global $post;
-
-		$sermon_words = sp_get_sermon_words();
-		$singular = $sermon_words['singular'];
-		$plural = $sermon_words['plural'];
-
-		$thumbnail_size = 'sp_thumb';
-
-		echo $before_widget;
-
-		// on other pages, show the most recent sermon
-		?>
-		<h4 class="widget-title widgettitle">Most Recent <?php echo $singular; ?></h4>
-
-		<?php
-		sp_most_recent_sermon();
-		/*?>
-
-		<img class="sp_thumb" src="<?php echo $series_thumbnail[0]; ?>"/>
-		<p class="sp_caption">You are viewing the <?php echo $singular; ?> series titled <em><strong><?php echo $post->post_title; ?></strong></em>. There <?php echo $countval; ?> posted in this series.</p>
-
-
-		<?php*/
-
-		echo $after_widget;
-	}
-}
-add_action( 'widgets_init', function() {return register_widget("SP_LatestSermonWidget"); });
 
 
 // SET UP CONTENT FILTERS FOR PLUGIN POST TYPES
-function sp_series_content($content)
+
+// create attractive display of series gropus
+function sp_series_group_content($content = '')
+{
+	if (! sp_is_series_group()) return $content;
+	$content = sp_add_series_in_group($content);
+	return $content;
+}
+add_filter('the_content', 'sp_series_group_content');
+
+// add related sermons to content on series pages
+function sp_series_content($content = '')
 {
 	if (! sp_is_series()) return $content;
 	$content = sp_add_sermons_in_series($content);
@@ -226,19 +165,25 @@ function sp_series_content($content)
 }
 add_filter('the_content', 'sp_series_content');
 
-
-function sp_sermon_content($content)
+// add media player to sermon pages
+function sp_sermon_content($content = '')
 {
+	// ignore this filter for non-sermon post types
 	if(! sp_is_sermon()) return $content;
-	$series_graphic = sp_add_series_graphic('');
-	$media_player = sp_add_media_player('',false);
-	$downloads = sp_add_downloads('');
-
-	return $series_graphic . $media_player . $downloads . $content;
+	
+	// ignore this filter if we are sending a feed of posts
+	if (!is_single() && !is_page()) return $content;
+	
+	$series_graphic = sp_add_series_graphic(''); // will return nothing if there is a video
+	$media_player = sp_add_media_player('',false); // will return video player or audio player or both
+	$downloads = sp_add_downloads(''); // will return a list of downloads
+	$archive = sp_add_archive_link();
+	
+	return $series_graphic . $media_player . $downloads . $archive . $content;
 }
 add_filter('the_content', 'sp_sermon_content');
 
-
+// add sermon posts to feeds
 function sp_add_sermons_to_feed($qv)
 {
 	if (isset($qv['feed']) && !isset($qv['post_type']))
@@ -251,7 +196,7 @@ function sp_add_sermons_to_feed($qv)
 add_filter('request', 'sp_add_sermons_to_feed');
 
 
-//add_action('loop_start', 'sp_series_archive');
+// unused function to hijack the series archive pages
 function sp_series_archive()
 {
 	global $wp_query;
@@ -294,7 +239,7 @@ function sp_series_archive()
 
 				<div class="series-item">
 				<a href="<?php the_permalink(); ?>">
-					<?php print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
+					<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
 				</a>
 				</div>
 
@@ -316,10 +261,12 @@ function sp_series_archive()
 	}
 	return;
 }
+// add_action('loop_start', 'sp_series_archive');
 
-// CONTENT MODIFICATION FILTER FUNCTIONS
-// SERIES MODIFICATIONS
-function sp_add_sermons_in_series($content)
+
+// HELPER FUNCTIONS FOR CONTENT FILTERS
+// SERIES PAGE MODIFICATIONS
+function sp_add_sermons_in_series($content = '')
 {
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
@@ -334,10 +281,34 @@ function sp_add_sermons_in_series($content)
 		$sermons = sp_get_sermons_by_series($series_id);
 
 		$sermons_html = '<div class="sermon-listing series-'.$series_slug.'">';
-		$sermons_html .= sprintf('<h2>%s in this Series</h2>', ucwords($plural));
-
+		
+		// put the most recent sermon on top
+		if (count($sermons) > 3)
+		{
+			$sermons_html .= sprintf('<div class="sp-most-recent"><h2>Most Recent %s in this Series</h2>', ucwords($singular));
+			$sermon = $sermons[count($sermons) - 1];
+			$slug = $sermon->post_name;
+			$id = $sermon->ID;
+			$title = $sermon->post_title;
+			$excerpt = $sermon->post_excerpt;
+			$permalink = get_permalink($id);
+			$date = date('M j, Y', strtotime($sermon->post_date));
+			$this_html = "\n\n";
+			$this_html .= '<div class="sermon sermon-'.$slug.'">';
+			$this_html .= '<a href="' . $permalink . '">';
+			$this_html .= '<div class="sermon-date">' . $date . '</div>';
+			$this_html .= '<h3>' . $title . '</h3>';
+			$this_html .= '<div class="sermon-excerpt">' . $excerpt . '</div>';
+			$this_html .= '</a></div>' . "\n\n";
+			$this_html .= '</div><!-- end .sp-most-recent -->';
+			$sermons_html .= $this_html;
+		}
+		
+		
+		// make a list of all the sermons
 		if (count($sermons) > 0)
 		{
+			$sermons_html .= sprintf('<div class="sp-all-sermons"><h2>All %s in this Series</h2>', ucwords($plural));
 			foreach($sermons as $sermon)
 			{
 				$slug = $sermon->post_name;
@@ -355,14 +326,54 @@ function sp_add_sermons_in_series($content)
 				$this_html .= '</a></div>' . "\n\n";
 				$sermons_html .= $this_html;
 			}
+			$sermons_html .= '</div><!-- end .sp-all-sermons -->';
 		}
 		else $sermons_html .= sprintf('NO %s HAVE YET BEEN POSTED TO THIS SERIES', strtoupper($plural));
+		$sermons_html .= '</div> <!-- close .sermon-listing -->';
+
 	}
 	return $content . $sermons_html;
 }
 
-// SERMON MODIFICATIONS
-function sp_add_series_graphic($content)
+function sp_add_series_in_group($content = '')
+{
+	global $post;
+	$slug = $post->post_name;
+	$id = $post->ID;
+	$selected_series = json_decode(get_post_meta($post->ID,'series_group_data',TRUE));
+
+	if (empty($selected_series)) return $content;
+	
+	
+	$content .= '<div class="sp_series_group_items">';
+	
+	foreach($selected_series as $series)
+	{
+		$link = get_permalink($series->ID);
+		$image_url = get_the_post_thumbnail_url($series->ID, '720');
+		$excerpt = substr(wp_strip_all_tags($series->post_content),0,400);
+		$content .= <<<EOF
+		
+		<a href="$link" class="series-post">
+			<img class="series-image" src="$image_url" />
+			<div class="series-content">
+				<h3 class="series-title">$series->post_title</h3>
+				<p class="series-description">
+					$excerpt...
+				</p>
+			</div>
+		</a>
+		<div class="clear">&nbsp;</div>
+EOF;
+	}
+	
+	$content .= '</div> <!-- end sp_series_group_items -->';
+	return $content;
+	
+}
+
+// SERMON POST MODIFICATIONS
+function sp_add_series_graphic($content = '')
 {
 	if (! sp_is_sermon()) return $content;
 	if (has_post_thumbnail()) return $content;
@@ -374,14 +385,15 @@ function sp_add_series_graphic($content)
 	return $series_thumbnail . $content;
 }
 
-function sp_add_downloads($content)
+// add a downloads box on sermon posts
+function sp_add_downloads($content = '')
 {
 	$content = sp_make_download_links() . $content;
 	return $content;
 }
 
 // add media player to sermon posts
-function sp_add_media_player($content, $send_to_browser = TRUE)
+function sp_add_media_player($content = '', $send_to_browser = TRUE)
 {
 	global $post;
 	if (!sp_is_sermon()) return $content;
@@ -402,8 +414,51 @@ function sp_add_media_player($content, $send_to_browser = TRUE)
 	}
 }
 
-// SERMON OUTPUT HELPER FUNCTIONS
-function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='')
+function sp_add_archive_link($content = '')
+{
+	if (! sp_is_sermon()) return $content;
+	$url = sp_get_archive_url();
+	if (!empty($url))
+	{
+		$content = '<a class="sp-archive-link" href="'.$url.'">' . $url . '</a>' . $content;
+	}
+	return $content;
+}
+
+function sp_get_archive_url($post_id = NULL)
+{
+	global $post;
+	if ($post_id === NULL) $post_id = $post->ID;
+	
+	// if $post_id is empty, we default
+	// to the global post in case this happens inside the loop
+	if (! sp_is_sermon() && empty($post_id)) return '';
+	$enclosures = '';
+	$downloads = '';
+	$output = '';
+	
+	// do we have a metadata item linking to the internet archive?
+	// $ia = get_post_custom_values('sp_archive_item');
+	$ia = get_post_meta($post_id, 'sp_archive_item', true);
+	if (!empty($ia)) return $ia;
+	
+	// do we have any links in the enclosures or downloads?
+	$enclosures = get_post_meta($post_id, 'enclosure');
+	$downloads = array_merge($enclosures, get_post_meta($post_id, 'download'));
+	foreach ($downloads as $d)
+	{
+		$url = explode("\n", $d)[0];
+		if (strpos($url, 'archive.org') !== false)
+		{
+			$ia = dirname($url);
+			return $ia;
+		}
+	}
+	return '';
+}
+
+// GALLERY SHORTCODE DISPLAY FUNCTIONS
+function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $after='', $format='overlay')
 {
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
@@ -411,6 +466,7 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	echo $before;
 	?>
 
+	<?php if ($format == 'overlay'): ?>
 	<div class="most-recent-series">
 		<div class="featured-series">
 			<a href="<?php echo get_permalink($featured_series_id); ?>">
@@ -424,57 +480,77 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 			</a>
 		</div>
 	</div>
+	<?php elseif ($format == 'left' || $format == 'right'): ?>
+	<div class="most-recent-series">
+		<div class="featured-series-<?php echo $format; ?>">
+			<a href="<?php echo get_permalink($featured_series_id); ?>">
+				<img class="featured-series-image-<?php echo $format; ?>" src="<?php echo $featured_series_image[0]; ?>" />
+				<div class="featured-series-image-sidebar">
+					<div class="featured-series-image-caption">
+						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+					</div>
+				</div>
+			</a>
+		</div>
+	</div>
+	<div class="clear">&nbsp;</div>
+	
+	<?php endif; ?>
+
 
 	<?php
 	echo $after;
 	return $featured_series_id;
-
 }
-function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='')
+
+function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $after='', $show_image=1, $show_text=1)
 {
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
 	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);
 	$most_recent = sp_get_most_recent_sermon();
+	$permalink = get_permalink($most_recent->ID);
 	echo $before;
-	?>
 
+	?>
+	
+	<?php if ($show_image == 1): ?>
 	<div class="most-recent-series">
 		<div class="featured-series">
-			<a href="<?php echo get_permalink($featured_series_id); ?>">
+			<a href="<?php echo $permalink; ?>">
 				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
 				<div class="featured-series-image-overlay">
 					<div class="featured-series-image-caption">
-						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
-						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
+						<div class="featured-series-title"><?php echo $most_recent->post_title; ?></div>
 					</div>
 				</div>
 			</a>
 		</div>
 	</div>
+	<?php endif;?>
+	
+	<?php if ($show_text == 1): ?>
 	<div class="most-recent-sermon">
-		<a href="<?php echo get_permalink($most_recent->ID); ?>">
+		<!-- <a href="<?php echo get_permalink($featured_series_id); ?>"><?php echo $featured_series->post_title; ?> ::<br /> -->
+		<a href="<?php echo $permalink; ?>">
 			<?php echo $most_recent->post_title; ?>
 		</a>
 		<br /><?php echo get_the_date(get_option( 'date_format' ), $most_recent->ID); ?>
 	</div>
+	<?php endif; ?>
 
 	<?php
 	echo $after;
 	return $featured_series_id;
+}
 
-}
-function sp_featured_helper($atts)
+
+function sp_series_group_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
 {
-	extract( shortcode_atts( array(
-		'thumbnail_size' => 'sp_poster',
-		'before' => '',
-		'after' => ''), $atts ) );
-	sp_most_recent_series($thumbnail_size, $before, $after);
-}
-function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '')
-{
-	$series_posts = sp_get_all_series();
+	$series_posts = sp_get_all_series_groups();
+	if (empty($series_posts)) return;
+	
 	$exclude = explode(',', str_replace(' ', '', $exclude));
 	echo $before;
 	?>
@@ -494,7 +570,9 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 
 		<div class="series-gallery-item item-<?php echo $class; ?>">
 			<a href="<?php print get_permalink($series->ID); ?>" >
-				<img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" />
+				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
+				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+				</div>
 				<div class="series-gallery-item-image-overlay">
 					<div class="series-gallery-item-image-caption">
 						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
@@ -507,8 +585,64 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 		<?php $counter = ($counter + 1) % 3; ?>
 		<?php endforeach; ?>
 	</div>
+	<div style="clear:both;">&nbsp;</div>
+	
+	<?php
+}
+
+function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '', $limit = -1)
+{
+	$series_posts = sp_get_all_series($limit);
+	if (empty($series_posts)) return;
+	
+	$exclude = explode(',', str_replace(' ', '', $exclude));
+	echo $before;
+	?>
+
+	<div class="series-gallery">
+
+		<?php
+		$classes = array('first','middle','last');
+		$counter = 0;
+		$class = $classes[$counter];
+		?>
+
+
+		<?php foreach ($series_posts as $series): ?>
+		<?php if (in_array($series->ID, $exclude)) continue; ?>
+		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+
+		<div class="series-gallery-item item-<?php echo $class; ?>">
+			<a href="<?php print get_permalink($series->ID); ?>" >
+				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
+				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+				</div>
+				<div class="series-gallery-item-image-overlay">
+					<div class="series-gallery-item-image-caption">
+						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
+						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					</div>
+				</div>
+			</a>
+		</div>
+		<?php $counter = ($counter + 1) % 3; ?>
+		<?php endforeach; ?>
+	</div>
+	<div style="clear:both;">&nbsp;</div>
 
 	<?php
+}
+
+// REGISTER GALLERY SHORTCODES
+function sp_featured_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_poster',
+		'before' => '',
+		'after' => '',
+		'format' => 'overlay'), $atts ) );
+	sp_most_recent_series($thumbnail_size, $before, $after, $format);
 }
 function sp_gallery_helper($atts)
 {
@@ -516,10 +650,23 @@ function sp_gallery_helper($atts)
 		'thumbnail_size' => 'sp_thumb',
 		'before' => '',
 		'after' => '',
-		'exclude' => '' ), $atts ) );
+		'limit' => -1,
+		'exclude' => ''), $atts ) );
 
 	ob_start();
-	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude);
+	sp_past_series_gallery($thumbnail_size, $before, $after, $exclude, $limit);
+	return ob_get_clean();
+}
+function sp_group_gallery_helper($atts)
+{
+	extract( shortcode_atts( array(
+		'thumbnail_size' => 'sp_thumb',
+		'before' => '',
+		'after' => '',
+		'exclude' => ''), $atts ) );
+
+	ob_start();
+	sp_series_group_gallery($thumbnail_size, $before, $after, $exclude);
 	return ob_get_clean();
 }
 function sp_full_gallery_helper($atts)
@@ -527,17 +674,23 @@ function sp_full_gallery_helper($atts)
 	extract( shortcode_atts( array(
 		'thumbnail_size' => 'sp_poster',
 		'before' => '',
-		'after' => ''), $atts ) );
+		'after' => '',
+		'format' => 'overlay'), $atts ) );
 
 	ob_start();
-
-	$fid = sp_most_recent_series($thumbnail_size, $before, $after);
-	sp_past_series_gallery('sp_thumb','','',$fid);
+	print($before);
+	$fid = sp_most_recent_series($thumbnail_size, '', '', $format);
+	sp_past_series_gallery('sp_thumb','<h2>Series Archive</h2>','',$fid);
+	sp_series_group_gallery('sp_thumb', '<h2>Series Groups</h2>', '', $exclude);
+	print($after);
 	return ob_get_clean();
 }
 add_shortcode('sp_featured', 'sp_featured_helper');
 add_shortcode('sp_gallery', 'sp_gallery_helper');
+add_shortcode('sp_group_gallery', 'sp_group_gallery_helper');
 add_shortcode('sp_full_gallery', 'sp_full_gallery_helper');
+
+
 
 // SERMON CONTENT HELPER FUNCTIONS
 // add downloads links to posts
@@ -551,12 +704,13 @@ function sp_make_download_links()
 	$downloads = get_post_custom_values('download');
 	if ($enclosures || $downloads) {
 		$output .= '<div class="download-links">downloads: ';
+		$links = [];
 		if ($enclosures) {
 			foreach ($enclosures as $enclosure) {
 				$encdata = explode("\n",$enclosure);
 				$url = $encdata[0];
 				$formatdata = unserialize($encdata[3]);
-				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${formatdata['format']}</a>";
+				$links[] = "<a class=\"download-link\" href=\"${encdata[0]}\">${formatdata['format']}</a>";
 			}
 		}
 		if ($downloads) {
@@ -564,9 +718,10 @@ function sp_make_download_links()
 				$encdata = explode("\n",$download);
 				$url = $encdata[0];
 				$format = $encdata[1];
-				$output .= "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
+				$links[] = "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
 			}
 		}
+		$output .= implode(' ', $links);
 		$output .= '</div>';
 	}
 	return $output;
@@ -574,17 +729,24 @@ function sp_make_download_links()
 
 function sp_has_video()
 {
+	// check for youtube link
+	$youtube_link = get_post_custom_values('youtube_link');
+	if (!empty($youtube_link)) return True;
+	
+	// check for video enclosure
 	$enclosures = get_post_custom_values('enclosure');
 	$video_extensions = array('.mp4','.ogv','webm');
-	if ($enclosures)
+	if (!empty($enclosures))
 	{
 		foreach ($enclosures as $e)
 		{
-			$encdata = explode("\n",$enclosure);
-			$url = $encdata[0];
-			if (preg_match('/mp4$|ogv$|webm$/', $url)) return true;
+			$encdata = explode("\n",$e);
+			$url = trim($encdata[0]);
+			if (preg_match('/mp4$|ogv$|webm$/', $url)) return True;
 		}
 	}
+	
+	// neither returned true, so we return false
 	return False;
 }
 
@@ -615,6 +777,21 @@ function sp_is_series($post_id = '')
 	else
 	{
 		return ($post->post_type == 'sp_series' && is_single());
+	}
+}
+
+function sp_is_series_group($post_id = '')
+{
+	global $post;
+	if (! isset($post) and ! $post_id) return False;
+	if ($post_id)
+	{
+		$p = get_post($post_id);
+		return $p->post_type;
+	}
+	else
+	{
+		return ($post->post_type == 'sp_series_group' && is_single());
 	}
 }
 
@@ -671,11 +848,22 @@ function sp_get_featured_series()
 	return get_posts( array ('post_type' => 'sp_series', 'numberposts'=>1) );
 }
 
-function sp_get_all_series()
+function sp_get_all_series_groups()
 {
-	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
-
+	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_series_group', 'orderby' => 'menu_order', 'order' => 'ASC' ) );
 }
+
+function sp_get_all_series($limit = -1)
+{
+	
+	return get_posts( array ( 'numberposts'=>$limit, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
+}
+
+function sp_get_all_sermons()
+{
+	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_sermon', 'orderby' => 'post_date', 'order' => 'DESC' ) );
+}
+
 
 
 function sp_get_sermon_words()
@@ -716,9 +904,12 @@ function sp_url_exists($url)
 }
 function sp_debug($s)
 {
-	print "<pre>";
-	print_r($s);
-	print "</pre>";
+	if (SP_SHOW_DEBUG)
+	{
+		print "<pre>";
+		print_r($s);
+		print "</pre>";		
+	}
 	if (SP_DO_LOG) sp_log($s);
 }
 
@@ -729,6 +920,10 @@ function sp_log($s)
 	fclose($h);
 }
 
+function sp_sermon_fix_attachments($post_id)
+{
+	$p = get_post($post_id);
+}
 
 /* Add Administration Pages */
 if ( is_admin() )
@@ -740,6 +935,11 @@ if ( is_admin() )
 function sp_admin_menu()
 {
 	add_options_page('Sermon Publisher Options', 'Sermon Publisher', 'manage_options', 'sermon-publisher-options', 'sp_options_page');
+}
+
+function sp_register_options()
+{
+	register_setting('sp_options','sp_options'); // one group to store all options as an array
 }
 
 function sp_options_page()
@@ -759,6 +959,26 @@ function sp_options_page()
 				Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
 				It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
 			</p>
+		</div>
+		
+		<div class="sp_instructions">
+			<p>
+				This plugin provides three shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery].
+			</p>
+			<ul>
+				<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
+				<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
+				<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
+			</ul>
+			<p>
+				Each shortcode provides additional options:
+			</p>
+			<ul>
+				<li><code>before</code>: HTML to display before the shortcode output.</li>
+				<li><code>after</code>: HTML to display after the shortcode output.</li>
+				<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image has text on the right, left, or in an overlay element.</li>
+				<li><code>limit</code>: controls how many items will be shown in a gallery
+			</ul>
 		</div>
 
 		<?php ini_set('max_execution_time', '300'); ?>
@@ -896,16 +1116,117 @@ function sp_options_page()
 					</td>
 				</tr>
 				<?php endforeach; ?>
+				
+				<!-- CHART OF SERMONS WITH FILES THAT CAN BE HOSTED ON ARCHIVE.ORG -->
+				<!-- CHECKBOX FOR HOSTING FILES ON ARCHIVE.ORG -->
 
 			</table>
 
 			<?php submit_button(); ?>
 
 		</form>
+		
+		<hr />
+		<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button> (this only uploads files) <br /><br />
+		<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button> (this removes local files if they exist on archive.org)
+		<div id="sp-host-remotely-results" style="width:100%;max-width:100%;overflow:scroll;box-sizing:border-box;padding:20px;background-color:#efe;white-space:pre;font-family:monospace;border:0;font-size:8pt;"></div>
+		
 	</div>
+	
+	<script>
+		
+		var log_box = document.getElementById('sp-host-remotely-results');
+		
+		function sp_ajax_log(s) {
+			log_box.innerHTML = log_box.innerHTML + '<br />' + 'LOG: ' + JSON.stringify(s)
+		}
+		
+		
+		jQuery(document).ready(function($){
+			
+			function sp_chain_host_remote_requests(action, posts, current_id) {
+				if (typeof(action) == 'undefined' || action == '') return;
+				if (typeof(current_id) == 'undefined') return;
+			
+				if (current_id >= posts.length){
+					sp_ajax_log('DONE');
+					return;
+				}
 
+				var id = posts[current_id]['ID'];
+				sp_ajax_log('PROCESSING #' + id);
+				sp_ajax_log('GUID: ' + posts[current_id]['guid']);
+			
+				$.ajax({
+					url: ajaxurl,
+					data: {'action':action, 'post_id': id},
+					method: 'POST',
+					success: function(response){
+						console.log(response);
+						sp_ajax_log(response)
+					},
+					complete: function(){
+						current_id++;
+						sp_chain_host_remote_requests(action, posts, current_id);
+					}
+				})
+			}
+			
+			function sp_get_sermons(callback){
+				// first, we get all the post ids here
+				$.ajax({
+					url: ajaxurl,
+					data: {'action':'sp_get_sermons'},
+					method: 'POST',
+					success: function(sermons){
+						console.log(sermons);
+						sp_ajax_log('FOUND ' + sermons.length + ' sermons');
+						callback(sermons)
+					}
+				})
+			}
+			
+			$('#sp-upload-all').click(function(e){
+				sp_ajax_log('UPLOADING ALL LOCAL SERMON FILES TO ARCHIVE.ORG');
+				sp_get_sermons(function(sermons){
+					sp_chain_host_remote_requests('sp_upload', sermons, 0);
+				})
+				
+			})
+			
+			$('#sp-host-remotely').click(function(e){
+				sp_ajax_log('REMOVING LOCAL FILES IF THEY EXIST ON ARCHIVE.ORG');
+				sp_get_sermons(function(sermons){
+					sp_chain_host_remote_requests('sp_host_remotely', sermons, 0);
+				})
+			})
+		})
+	</script>
+	
 	<?php
 }
+
+add_action('wp_ajax_sp_get_sermons', 'sp_ajax_get_sermons');
+function sp_ajax_get_sermons()
+{
+	wp_send_json(sp_get_all_sermons());
+}
+
+add_action('wp_ajax_sp_host_remotely', 'sp_ajax_host_remotely');
+function sp_ajax_host_remotely()
+{
+	$post_id = $_POST['post_id'];
+	if (empty($post_id)) $retval = ['error' => 1, 'msg' => 'no post id submitted'];
+	
+	else {
+		sp_debug('HOSTING REMOTELY FOR ' . $post_id);
+		$retval = sp_remove_local_files($post_id);
+	}
+
+	sp_debug($retval);
+	wp_send_json($retval);
+}
+
 
 add_action( 'wp_ajax_sp_upload', 'sp_ajax_upload_listener' );
 function sp_ajax_upload_listener()
@@ -913,12 +1234,22 @@ function sp_ajax_upload_listener()
 	$post_id = $_POST['post_id'];
 	$remove_local = isset($_POST['remove_local']) && $_POST['remove_local'];
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
+	$retval = [];
+	$had_error = False;
 
 	// make sure all specified files are uploaded to archive.org
+	// if none are specified in a POST variable, attempt to upload all attachments
 	$file_path = isset($_POST['file_path']) ? ($_POST['file_path']) : '';
-	if ($file_path == '')
+	if (!empty($file_path))
 	{
-		//attempt to upload all the files
+		$retval = sp_do_archive_upload($post_id, $file_path);
+		if ($retval['error']) $had_error = True;
+	}
+	else
+	{
+		$retval = array();
+		
+		//attempt to upload all the files if needed
 		$previous_uploads = array();
 		$args = array(
 			'post_parent' => $post_id,
@@ -929,38 +1260,62 @@ function sp_ajax_upload_listener()
 		foreach ($previous_uploads as $pu)
 		{
 			$attachment_path = get_attached_file($pu->ID, TRUE);
+			sp_debug('PREPARING TO UPLOAD');
+			sp_debug($attachment_path);
 
 			// check to see if this file has been uploaded to archive.org yet
 			$already_uploaded = False;
 			foreach ($archive_completed_uploads as $acu)
 			{
-				if (basename($acu) == basename($attachment_path)) $already_uploaded = True;
+				if (basename($acu) == basename($attachment_path))
+				{
+					$already_uploaded = True;
+					sp_debug('ALREADY UPLOADED');
+				}
 			}
-			if (! $already_uploaded) sp_do_archive_upload($post_id, $attachment_path);
+			if (! $already_uploaded)
+			{
+				$res = sp_do_archive_upload($post_id, $attachment_path);
+				if ($res['error']) $had_error = True;
+				$retval[] = $res;
+			}
+
+			
+			// always upload even if the file has been uploaded before
+			// $res = sp_do_archive_upload($post_id, $attachment_path);
+			// if ($res['error']) $had_error = True;
+			// $retval[] = $res;
 		}
 	}
-	else
+	if (! $had_error && $remove_local)
 	{
-		sp_do_archive_upload($post_id, $file_path);
+		$retval = sp_remove_local_files($post_id);
 	}
-	if ($remove_local) sp_remove_local_files($post_id);
+	sp_debug($retval);
+	wp_send_json($retval);
 }
 
 // remove local files that exist on archive.org
 // re-link local enclosures to remote files
 function sp_remove_local_files($post_id)
 {
+	$retval = array('error' => 0, 'msg' => '');
+	
 	sp_debug('sp_remove_local_files');
 	$archive_completed_uploads = get_post_meta($post_id, 'sp_archive_uploaded_file');
+	
 	$args = array(
 		'post_parent' => $post_id,
 		'post_type' => 'attachment',
 		'post_status' => 'inherit'
 	);
 	$previous_uploads = get_children($args);
+	
 
 	foreach ($archive_completed_uploads as $acu)
 	{
+		$local_files_to_delete = array();
+		
 		// check to see if this actually exists on archive.org
 		if (sp_url_exists($acu))
 		{
@@ -977,9 +1332,8 @@ function sp_remove_local_files($post_id)
 					$encdata = explode("\n", $oldenc_normalized);
 					$oldurl = $encdata[0];
 
-					// does this enclosure go with this archive.org file?
-					// if not, move on to the next enclosure
-					if (basename($oldurl) != basename($acu)) continue;
+					// does this enclosure go with this archive.org file? (archive.org files will have been urlencoded)
+					if (basename($oldurl) != basename($acu) && urlencode(basename($oldurl)) != basename($acu)) continue;
 
 					// this enclosure url will be replaced by the archive.org url
 					$encdata[0] = $acu;
@@ -989,22 +1343,44 @@ function sp_remove_local_files($post_id)
 					// replace the enclosure
 					delete_post_meta($post_id, $key, $oldenc);
 					add_post_meta($post_id, $key, $newenc);
-
-					// run through all attachments to remove the one which matches $oldurl
-					foreach ($previous_uploads as $pu)
+					
+					$retval['msg'] .= '<br />' . $acu . ' is now hosted at archive.org';
+					
+					$local_files_to_delete[] = basename($oldurl);
+				}
+			}
+			
+			// since this file is successfully hosted on archive.org, delete local attachments that match it
+			// run through all attachments to remove the one which matches $oldurl
+			sp_debug('DELETING LOCAL FILES MATCHING: ' . basename($acu));
+			
+			// process all the attachments for this post and delete the ones matching $local_files_to_delete
+			foreach ($previous_uploads as $pu)
+			{
+				$upload_file = basename(wp_get_attachment_url($pu->ID));
+				sp_debug('CHECKING: ' . $upload_file);
+				foreach ($local_files_to_delete as $file_to_delete)
+				{
+					sp_debug('CHECKING: ' . $file_to_delete);
+					
+					if ($upload_file == $file_to_delete)
 					{
-						if (basename(wp_get_attachment_url($pu->ID)) == $oldurl)
-							wp_delete_attachment($pu->ID, True);
+						sp_debug('MATCHED: ' . $file_to_delete);
+						wp_delete_attachment($pu->ID, True);
+						
+						$retval['msg'] .= '<br />' . $basename . ' was deleted from this site.';
 					}
 				}
 			}
 		}
+		else
+		{
+			$retval['error'] = 1;
+			$retval['msg'] .= '<br />' . $acu . ' cannot be found on archive.org. Double-check the filenames for invalid characters.';
+			sp_debug($acu . ' cannot be found on archive.org. Double-check the filenames for invalid characters.');
+		}
 	}
-}
-
-function sp_register_options()
-{
-	register_setting('sp_options','sp_options'); // one group to store all options as an array
+	return $retval;
 }
 
 function sp_queue_archive_upload($post_id, $file_path)
@@ -1013,10 +1389,21 @@ function sp_queue_archive_upload($post_id, $file_path)
 	wp_schedule_single_event(time()+3, 'sp_do_archive_upload', array($post_id, $file_path));
 }
 
+// this function is called by ajax, so we want to return json
 function sp_do_archive_upload($post_id, $file_path)
 {
-	if (empty($file_path)) return;
-
+	$retval = array();
+	$curl_debug = '';
+	
+	if (empty($file_path))
+	{
+		$retval['error'] = 1;
+		$retval['msg'] = 'No file was specified.';
+		sp_debug('ERROR: No file was specified.');
+		return $retval;
+	}
+	sp_debug('Starting upload: ' . $file_path);
+	
 	ini_set('max_execution_time', 60*60);
 	add_post_meta($post_id, 'sp_archive_uploading', $file_path);
 	$sermon_words = sp_get_sermon_words();
@@ -1032,9 +1419,13 @@ function sp_do_archive_upload($post_id, $file_path)
 		$series_post = get_post($series_id);
 		$series_name = $series_post->post_name;
 	}
+	
+	// unpublished posts can have an empty slug.
 	$sermon_post = get_post($post_id);
 	$sermon_name = $sermon_post->post_name;
-
+	if (empty($sermon_name)) $sermon_name = $sermon_post->post_title;
+	if (empty($sermon_name)) $sermon_name = 'untitled--' . $sermon_post->post_date;
+	
 	// first we check to see if an identifier is already set in the post metadata
 	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
 	if (empty($identifier))
@@ -1042,11 +1433,19 @@ function sp_do_archive_upload($post_id, $file_path)
 		// no identifier is set, so we need to generate one and hope it is unique
 		// identifier pattern looks like this blog_domain.series_slug.post_slug
 		// identifiers are S3 buckets so they must be lowercase letters, numbers, and periods
+		// identifiers must match this pattern: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{4,100}$
+		// but we don't want the first or final character to be a period
 		$identifier = $domain . '--' . $series_name . '--' . $sermon_name;
 		$identifier = strtolower($identifier);
 		$identifier = preg_replace('/[^a-zA-Z0-9.]/','-', $identifier);
+		$identifier = preg_replace('/^\./','', $identifier);
+		$identifier = preg_replace('/\.$/','', $identifier);
+		
+		// identifier can only be 100 characters long
+		$identifier = substr($identifier, 0, 100);
 	}
-
+	sp_debug('Identifier: ' . $identifier);
+	
 	// now we compute all important archive.org fields
 	$archive_server = 'http://s3.us.archive.org';
 	$metadata = Array(
@@ -1067,8 +1466,8 @@ function sp_do_archive_upload($post_id, $file_path)
 	$filesize = filesize($file_path);
 
 
-	// now we execute the s3 commands to upload this file
-	$curl_basic_headers = Array("authorization: LOW $accesskey:$secretkey", 'Content-Length:' . $filesize);
+	// now we setup and execute the s3 commands to upload this file
+	$curl_basic_headers = Array("authorization: LOW $accesskey:$secretkey", 'x-archive-size-hint:' . $filesize);
 	$curl_bucket_create_headers = Array('x-archive-auto-make-bucket:1');
 	$curl_metadata_headers = Array();
 	foreach($metadata as $key=>$value)
@@ -1079,7 +1478,27 @@ function sp_do_archive_upload($post_id, $file_path)
 	$archive_endpoint = $archive_server . '/' . $identifier . '/' . urlencode(basename($file_path));
 
 	$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers, $curl_bucket_create_headers);
+	
+	// generate curl command line for testing
+    // curl --location --header 'x-amz-auto-make-bucket:1' \
+    //      --header 'x-archive-meta01-collection:opensource_movies' \
+    //      --header 'x-archive-meta-mediatype:movies' \
+    //      --header 'x-archive-meta-title:Ben plays piano.' \
+    //      --header "authorization: LOW $accesskey:$secret" \
+    //      --upload-file ben-2009-05-09.avi \
+    //      http://s3.us.archive.org/ben-plays-piano/ben-plays-piano.avi
+	
+	$curl_debug = "curl --location \\\n";
+	foreach($curl_headers as $h)
+	{
+		$curl_debug .= "    --header '$h' \\\n";
+	}
+	$curl_debug .=     "    --upload-file '$file_path' \\\n";
+	$curl_debug .= "'$archive_endpoint'";
+	
 	sp_debug('attempting to start upload');
+	sp_debug('CURL COMMAND:');
+	sp_debug($curl_debug);
 	sp_debug('CURL HEADERS:');
 	sp_debug($curl_headers);
 	sp_debug('ARCHIVE_ENDPOINT');
@@ -1105,7 +1524,7 @@ function sp_do_archive_upload($post_id, $file_path)
 	$count = 1;
 	if (strpos($response, 'BucketAlreadyExists') !== False)
 	{
-		sp_debug('trying to submit again');
+		sp_debug('bucket exists trying to submit files to that bucket');
 		$curl_headers = array_merge($curl_basic_headers, $curl_metadata_headers);
 		sp_debug($curl_headers);
 		$ch = curl_init();
@@ -1123,24 +1542,36 @@ function sp_do_archive_upload($post_id, $file_path)
 		$response = curl_exec($ch);
 		sp_debug('EXEC AGAIN');
 		sp_debug(curl_getinfo($ch, CURLINFO_HEADER_OUT));
+		sp_debug($response);
 	}
-	sp_debug('FINAL CURL RESPONSE');
-	sp_debug($response);
-
+	
 	delete_post_meta($post_id, 'sp_archive_uploading', $file_path);
+	
+	
+	// was it successful?
+	$response_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
 	if (curl_errno($ch) )
 	{
 		sp_debug('CURL ERROR');
 		sp_debug(curl_error($ch));
+		$retval['error'] = 1;
+		$retval['msg'] = 'Unknown CURL error. Contact your webmaster. <pre>'.curl_error($ch).'<br><br>'.$response.'</pre>';
+	}
+	elseif ($response_code != 200)
+	{
+		sp_debug('HTTP ERROR CODE');
+		sp_debug($response_code);
+		$retval['error'] = 1;
+		$retval['msg'] = 'Unknown Uploading error. Contact your webmaster. <pre>'.$response.'</pre>';
 	}
 	else
 	{
 		$archive_item = "http://archive.org/details/" . $identifier;
 		$archive_file = "http://archive.org/download/" . $identifier . '/' . urlencode(basename($file_path));
 
-		print "<li><a href=\"$archive_item\">$archive_item</a>";
-		print "<li><a href=\"$archive_file\">$archive_file</a>";
+		// print "<li><a href=\"$archive_item\">$archive_item</a>";
+		// print "<li><a href=\"$archive_file\">$archive_file</a>";
 
 		// now we add the post metadata that is needed
 		add_post_meta($post_id, 'sp_archive_identifier', $identifier, True) || update_post_meta($post_id, 'sp_archive_identifier', $identifier);
@@ -1150,9 +1581,16 @@ function sp_do_archive_upload($post_id, $file_path)
 		$uploaded_files = get_post_meta($post_id, 'sp_archive_uploaded_file');
 		if (! in_array($archive_file, $uploaded_files))
 			add_post_meta($post_id, 'sp_archive_uploaded_file', $archive_file);
+		
+		$retval['error'] = 0;
+		$retval['msg'] = 'Success';
+		$retval['archive_item'] = $archive_item;
+		$retval['archive_file'] = $archive_file;
 	}
 	curl_close($ch);
-
+	sp_debug('SENDING JSON');
+	sp_debug(json_encode($retval));
+	return $retval;
 }
 
 ?>
