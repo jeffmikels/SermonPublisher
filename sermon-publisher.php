@@ -141,7 +141,7 @@ function sp_rest_prepare_sp_sermon($data, $post, $request) {
 	$data->data['archive_item'] = sp_get_archive_url($post->ID);
 	return $data;
 }
-add_filter("rest_prepare_sp_sermon", 'jmapp_rest_prepare_sp_sermon', 10, 3);
+add_filter("rest_prepare_sp_sermon", 'sp_rest_prepare_sp_sermon', 10, 3);
 
 
 
@@ -721,7 +721,7 @@ function sp_make_download_links()
 				$links[] = "<a class=\"download-link\" href=\"${encdata[0]}\">${format}</a>";
 			}
 		}
-		$output .= implode(' ', $links);
+		$output .= implode(' | ', $links);
 		$output .= '</div>';
 	}
 	return $output;
@@ -854,8 +854,7 @@ function sp_get_all_series_groups()
 }
 
 function sp_get_all_series($limit = -1)
-{
-	
+{	
 	return get_posts( array ( 'numberposts'=>$limit, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
 }
 
@@ -863,6 +862,57 @@ function sp_get_all_sermons()
 {
 	return get_posts( array ( 'numberposts'=>-1, 'post_type' => 'sp_sermon', 'orderby' => 'post_date', 'order' => 'DESC' ) );
 }
+
+function sp_get_series_with_sermons($page = 1, $posts_per_page = 10)
+{	
+	$series = get_posts( array ( 'posts_per_page'=>$posts_per_page, 'page'=>$page, 'post_type' => 'sp_series', 'orderby' => 'post_date', 'order' => 'DESC' ) );
+	foreach($series as $key=>$s)
+	{
+		// get featured image
+		$featured_id = get_post_thumbnail_id($s->ID);
+		$images = array();
+		$image = '';
+		foreach (['thumbnail','medium','large','full'] as $size)
+		{
+			$details = wp_get_attachment_image_src($featured_id, $size);
+			if (!empty($details))
+			{
+				$s->imageUrl = $details[0];
+				$images[$size] = $details;
+			}
+		}
+		$s->images = $images;
+		
+		// get child sermons
+		$s->children = sp_get_sermons_by_series($s->ID);
+		foreach ($s->children as $childkey=>$child)
+		{
+			// get enclosures
+			$enclosures = get_post_meta($child->ID,'enclosure');
+			if (is_array($enclosures))
+			{
+				foreach ($enclosures as $enclosure)
+				{
+					$enc = array();
+					// replace \r\n with \n
+					$enclosure = str_replace("\r\n", "\n", $enclosure);
+					$encdata = explode("\n", $enclosure);
+					$enc['url'] = $encdata[0];
+					$enc['size'] = $encdata[1];
+					$enc['type'] = $encdata[2];
+					$enc['details'] = unserialize($encdata[3]);
+					$format = $enc['details']['format'];
+					// $output['posts'][$i]['enclosures'][$format] = $enc;
+					$child->$format = $enc;
+				}
+			}
+			$s->children[$childkey] = $child;
+		}
+		$series[$key] = $s;
+	}
+	return $series;
+}
+
 
 
 
@@ -1426,6 +1476,9 @@ function sp_do_archive_upload($post_id, $file_path)
 	if (empty($sermon_name)) $sermon_name = $sermon_post->post_title;
 	if (empty($sermon_name)) $sermon_name = 'untitled--' . $sermon_post->post_date;
 	
+	// remove series name from sermon name
+	$sermon_name = str_replace($series_name, '', $sermon_name);
+	
 	// first we check to see if an identifier is already set in the post metadata
 	$identifier = get_post_meta($post_id, 'sp_archive_identifier', TRUE);
 	if (empty($identifier))
@@ -1442,7 +1495,13 @@ function sp_do_archive_upload($post_id, $file_path)
 		$identifier = preg_replace('/\.$/','', $identifier);
 		
 		// identifier can only be 100 characters long
-		$identifier = substr($identifier, 0, 100);
+		// so we take out internal characters if we need to
+		if (strlen($identifier) > 100) {
+			$head = substr($identifier, 0, 47);
+			$tail = substr($identifier, -49);
+			$identifier = $head . '---' . $tail;
+		}
+		// $identifier = substr($identifier, 0, 100);
 	}
 	sp_debug('Identifier: ' . $identifier);
 	
