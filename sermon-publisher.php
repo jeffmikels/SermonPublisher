@@ -62,7 +62,7 @@ function sp_custom_post_types()
 		'menu_position' => 20,
 		'show_in_rest' => true,
 		'rest_base' => 'series_groups',
-		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields'),
+		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields', 'genesis-layouts'),
 	));
 
 	register_post_type( 'sp_series', array
