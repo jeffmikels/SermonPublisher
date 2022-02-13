@@ -617,7 +617,7 @@ function sp_series_group_meta_setup()
 		<input type="hidden" name="series_group_meta_noncename" value="<?php echo wp_create_nonce(__FILE__); ?>" />
 	</div>
 	
-	<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
 	<script>
 		var series_pages = <?php echo json_encode($series_pages); ?>;
 		var selected_series = <?php echo json_encode($selected_series); ?>;
