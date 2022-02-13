@@ -612,7 +612,8 @@ function sp_series_group_meta_setup()
 			<div class="series_select_row" v-for="series in available_series">
 				<a class="series_select_link" @click="select_series(series)">{{series.post_title}}</a>
 			</div>
-			<input type="hidden" id="series_group_data" name="series_group_data" v-model="group_data_json"/>
+			<!-- <input type="hidden" id="series_group_data" name="series_group_data" v-model="group_data_json"/> -->
+			<textarea name="series_group_data" v-model="group_data_json"></textarea>
 		</div>
 		<input type="hidden" name="series_group_meta_noncename" value="<?php echo wp_create_nonce(__FILE__); ?>" />
 	</div>
@@ -724,7 +725,7 @@ function sp_series_group_meta_save($post_id)
 {
 	// Bail if we're doing an auto save
 	if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
-
+	
 	// authentication checks
 
 	// make sure data came from our meta box
@@ -739,7 +740,7 @@ function sp_series_group_meta_save($post_id)
 	{
 		if (!current_user_can('edit_post', $post_id)) return $post_id;
 	}
-
+	
 	// authentication passed, save data
 
 	// var types
@@ -748,20 +749,30 @@ function sp_series_group_meta_save($post_id)
 	// grouped array: sermon_series[var_group][0][var_1], sermon_series[var_group][0][var_2]
 
 	$current_data = get_post_meta($post_id, 'series_group_data', TRUE);
-
 	$new_data = $_POST['series_group_data'];
-
+	
 	sp_sermon_meta_clean($new_data);
-
-	if ($current_data)
+	
+	delete_post_meta($post_id,'series_group_data');
+	if (!empty($new_data))
 	{
-		if (is_null($new_data)) delete_post_meta($post_id,'series_group_data');
-		else update_post_meta($post_id,'series_group_data',$new_data);
-	}
-	elseif (!is_null($new_data))
-	{
+		sp_log('ADDING NEW SERIES GROUP DATA');
+		sp_log($new_data);
 		add_post_meta($post_id,'series_group_data',$new_data,TRUE);
 	}
+	// if ($current_data)
+	// {
+	// 	sp_log('UPDATING SERIES GROUP DATA');
+	// 	sp_log($new_data);
+	// 	if (empty($new_data)) delete_post_meta($post_id,'series_group_data');
+	// 	else update_post_meta($post_id,'series_group_data',$new_data);
+	// }
+	// elseif (!is_null($new_data))
+	// {
+	// 	sp_log('ADDING NEW SERIES GROUP DATA');
+	// 	sp_log($new_data);
+	// 	add_post_meta($post_id,'series_group_data',$new_data,TRUE);
+	// }
 
 	return $post_id;
 }
