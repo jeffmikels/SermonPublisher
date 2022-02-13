@@ -612,8 +612,8 @@ function sp_series_group_meta_setup()
 			<div class="series_select_row" v-for="series in available_series">
 				<a class="series_select_link" @click="select_series(series)">{{series.post_title}}</a>
 			</div>
-			<!-- <input type="hidden" id="series_group_data" name="series_group_data" v-model="group_data_json"/> -->
-			<textarea name="series_group_data" v-model="group_data_json"></textarea>
+			<input type="hidden" id="series_group_data" name="series_group_data" v-model="group_data_json"/>
+			<!-- <textarea name="series_group_data" v-model="group_data_json"></textarea> -->
 		</div>
 		<input type="hidden" name="series_group_meta_noncename" value="<?php echo wp_create_nonce(__FILE__); ?>" />
 	</div>
