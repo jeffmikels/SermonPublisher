@@ -218,33 +218,33 @@ function sp_series_archive()
 
 		?>
 
-			<div class="series most-recent">
-				<a href="<?php the_permalink(); ?>">
-					<?php print the_post_thumbnail('sp_poster',array('class' => 'fullwidth', 'title'=>get_the_title())); ?>
-					<div class="series-description">
-						<span class="series-title"><?php the_title(); ?></span>
-						<span class="series-excerpt"><?php the_excerpt(); ?></span>
-					</div>
-				</a>
-			</div>
+<div class="series most-recent">
+	<a href="<?php the_permalink(); ?>">
+		<?php print the_post_thumbnail('sp_poster',array('class' => 'fullwidth', 'title'=>get_the_title())); ?>
+		<div class="series-description">
+			<span class="series-title"><?php the_title(); ?></span>
+			<span class="series-excerpt"><?php sp_ensure_excerpt($post, 600); ?></span>
+		</div>
+	</a>
+</div>
 
-			<div class="series series-gallery">
+<div class="series series-gallery">
 
-		<?php
+	<?php
 
 			foreach ($the_rest as $post)
 			{
 				setup_postdata($post);
 				?>
 
-				<div class="series-item">
-				<a href="<?php the_permalink(); ?>">
-					<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
-				</a>
-				</div>
+	<div class="series-item">
+		<a href="<?php the_permalink(); ?>">
+			<?php //print the_post_thumbnail('sp_thumb',array('class' => 'fullwidth', 'title' => get_the_title())); ?>
+		</a>
+	</div>
 
 
-				<?php
+	<?php
 
 
 
@@ -253,9 +253,9 @@ function sp_series_archive()
 
 		?>
 
-			</div>
+</div>
 
-		<?php
+<?php
 
 		return;
 	}
@@ -265,6 +265,13 @@ function sp_series_archive()
 
 
 // HELPER FUNCTIONS FOR CONTENT FILTERS
+function sp_ensure_excerpt($post, $length=400)
+{
+	$retval = empty($post->post_excerpt) ? substr(wp_strip_all_tags($post->post_content),0,$length) : $post->post_excerpt;
+	if (strlen($retval) == $length) $retval .= '...';
+	return $retval;
+}
+
 // SERIES PAGE MODIFICATIONS
 function sp_add_sermons_in_series($content = '')
 {
@@ -290,7 +297,7 @@ function sp_add_sermons_in_series($content = '')
 			$slug = $sermon->post_name;
 			$id = $sermon->ID;
 			$title = $sermon->post_title;
-			$excerpt = $sermon->post_excerpt;
+			$excerpt = sp_ensure_excerpt($sermon);
 			$permalink = get_permalink($id);
 			$date = date('M j, Y', strtotime($sermon->post_date));
 			$this_html = "\n\n";
@@ -314,7 +321,7 @@ function sp_add_sermons_in_series($content = '')
 				$slug = $sermon->post_name;
 				$id = $sermon->ID;
 				$title = $sermon->post_title;
-				$excerpt = $sermon->post_excerpt;
+				$excerpt = sp_ensure_excerpt($sermon);
 				$permalink = get_permalink($id);
 				$date = date('M j, Y', strtotime($sermon->post_date));
 				$this_html = "\n\n";
@@ -351,7 +358,7 @@ function sp_add_series_in_group($content = '')
 	{
 		$link = get_permalink($series->ID);
 		$image_url = get_the_post_thumbnail_url($series->ID, '720');
-		$excerpt = substr(wp_strip_all_tags($series->post_content),0,400);
+		$excerpt = sp_ensure_excerpt($series);
 		$content .= <<<EOF
 		
 		<a href="$link" class="series-post">
@@ -463,43 +470,44 @@ function sp_most_recent_series($thumbnail_size = 'sp_poster', $before = '', $aft
 	$featured_series = sp_get_featured_series();
 	$featured_series_id = $featured_series->ID;
 	$featured_series_image = sp_get_image($featured_series_id, $thumbnail_size);
+	$excerpt = sp_ensure_excerpt($featured_series, 600); // allow 600 characters in the excerpt.
 	echo $before;
 	?>
 
-	<?php if ($format == 'overlay'): ?>
-	<div class="most-recent-series">
-		<div class="featured-series">
-			<a href="<?php echo get_permalink($featured_series_id); ?>">
-				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
-				<div class="featured-series-image-overlay">
-					<div class="featured-series-image-caption">
-						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
-						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
-					</div>
+<?php if ($format == 'overlay'): ?>
+<div class="most-recent-series">
+	<div class="featured-series">
+		<a href="<?php echo get_permalink($featured_series_id); ?>">
+			<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
+			<div class="featured-series-image-overlay">
+				<div class="featured-series-image-caption">
+					<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+					<div class="featured-series-excerpt"><?php echo $excerpt; ?></div>
 				</div>
-			</a>
-		</div>
+			</div>
+		</a>
 	</div>
-	<?php elseif ($format == 'left' || $format == 'right'): ?>
-	<div class="most-recent-series">
-		<div class="featured-series-<?php echo $format; ?>">
-			<a href="<?php echo get_permalink($featured_series_id); ?>">
-				<img class="featured-series-image-<?php echo $format; ?>" src="<?php echo $featured_series_image[0]; ?>" />
-				<div class="featured-series-image-sidebar">
-					<div class="featured-series-image-caption">
-						<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
-						<div class="featured-series-excerpt"><?php echo $featured_series->post_excerpt; ?></div>
-					</div>
+</div>
+<?php elseif ($format == 'left' || $format == 'right'): ?>
+<div class="most-recent-series">
+	<div class="featured-series-<?php echo $format; ?>">
+		<a href="<?php echo get_permalink($featured_series_id); ?>">
+			<img class="featured-series-image-<?php echo $format; ?>" src="<?php echo $featured_series_image[0]; ?>" />
+			<div class="featured-series-image-sidebar">
+				<div class="featured-series-image-caption">
+					<div class="featured-series-title"><?php echo $featured_series->post_title; ?></div>
+					<div class="featured-series-excerpt"><?php echo $excerpt; ?></div>
 				</div>
-			</a>
-		</div>
+			</div>
+		</a>
 	</div>
-	<div class="clear">&nbsp;</div>
-	
-	<?php endif; ?>
+</div>
+<div class="clear">&nbsp;</div>
+
+<?php endif; ?>
 
 
-	<?php
+<?php
 	echo $after;
 	return $featured_series_id;
 }
@@ -514,33 +522,33 @@ function sp_most_recent_sermon($thumbnail_size = 'sp_poster', $before = '', $aft
 	echo $before;
 
 	?>
-	
-	<?php if ($show_image == 1): ?>
-	<div class="most-recent-series">
-		<div class="featured-series">
-			<a href="<?php echo $permalink; ?>">
-				<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
-				<div class="featured-series-image-overlay">
-					<div class="featured-series-image-caption">
-						<div class="featured-series-title"><?php echo $most_recent->post_title; ?></div>
-					</div>
-				</div>
-			</a>
-		</div>
-	</div>
-	<?php endif;?>
-	
-	<?php if ($show_text == 1): ?>
-	<div class="most-recent-sermon">
-		<!-- <a href="<?php echo get_permalink($featured_series_id); ?>"><?php echo $featured_series->post_title; ?> ::<br /> -->
-		<a href="<?php echo $permalink; ?>">
-			<?php echo $most_recent->post_title; ?>
-		</a>
-		<br /><?php echo get_the_date(get_option( 'date_format' ), $most_recent->ID); ?>
-	</div>
-	<?php endif; ?>
 
-	<?php
+<?php if ($show_image == 1): ?>
+<div class="most-recent-series">
+	<div class="featured-series">
+		<a href="<?php echo $permalink; ?>">
+			<img class="featured-series-image" src="<?php echo $featured_series_image[0]; ?>" />
+			<div class="featured-series-image-overlay">
+				<div class="featured-series-image-caption">
+					<div class="featured-series-title"><?php echo $most_recent->post_title; ?></div>
+				</div>
+			</div>
+		</a>
+	</div>
+</div>
+<?php endif;?>
+
+<?php if ($show_text == 1): ?>
+<div class="most-recent-sermon">
+	<!-- <a href="<?php //echo get_permalink($featured_series_id); ?>"><?php //echo $featured_series->post_title; ?> ::<br /> -->
+	<a href="<?php echo $permalink; ?>">
+		<?php echo $most_recent->post_title; ?>
+	</a>
+	<br /><?php echo get_the_date(get_option( 'date_format' ), $most_recent->ID); ?>
+</div>
+<?php endif; ?>
+
+<?php
 	echo $after;
 	return $featured_series_id;
 }
@@ -555,39 +563,40 @@ function sp_series_group_gallery($thumbnail_size = 'sp_thumb', $before = '', $af
 	echo $before;
 	?>
 
-	<div class="series-gallery">
+<div class="series-gallery">
 
-		<?php
-		$classes = array('first','middle','last');
+	<?php
+		$classes = ['first','middle','last'];
 		$counter = 0;
 		$class = $classes[$counter];
 		?>
 
 
-		<?php foreach ($series_posts as $series): ?>
-		<?php if (in_array($series->ID, $exclude)) continue; ?>
-		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+	<?php foreach ($series_posts as $series): ?>
+	<?php if (in_array($series->ID, $exclude)) continue; ?>
+	<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+	<?php $excerpt = sp_ensure_excerpt($series, 140); ?>
 
-		<div class="series-gallery-item item-<?php echo $class; ?>">
-			<a href="<?php print get_permalink($series->ID); ?>" >
-				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
-				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+	<div class="series-gallery-item item-<?php echo $class; ?>">
+		<a href="<?php print get_permalink($series->ID); ?>">
+			<div class="series-gallery-item-image"
+				style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+			</div>
+			<div class="series-gallery-item-image-overlay">
+				<div class="series-gallery-item-image-caption">
+					<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+					<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					<div class="series-gallery-item-excerpt"><?php echo $excerpt; ?></div>
 				</div>
-				<div class="series-gallery-item-image-overlay">
-					<div class="series-gallery-item-image-caption">
-						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
-						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
-						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
-					</div>
-				</div>
-			</a>
-		</div>
-		<?php $counter = ($counter + 1) % 3; ?>
-		<?php endforeach; ?>
+			</div>
+		</a>
 	</div>
-	<div style="clear:both;">&nbsp;</div>
-	
-	<?php
+	<?php $counter = ($counter + 1) % 3; ?>
+	<?php endforeach; ?>
+</div>
+<div style="clear:both;">&nbsp;</div>
+
+<?php
 }
 
 function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $after = '', $exclude = '', $limit = -1)
@@ -599,39 +608,41 @@ function sp_past_series_gallery($thumbnail_size = 'sp_thumb', $before = '', $aft
 	echo $before;
 	?>
 
-	<div class="series-gallery">
+<div class="series-gallery">
 
-		<?php
+	<?php
 		$classes = array('first','middle','last');
 		$counter = 0;
 		$class = $classes[$counter];
 		?>
 
 
-		<?php foreach ($series_posts as $series): ?>
-		<?php if (in_array($series->ID, $exclude)) continue; ?>
-		<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+	<?php foreach ($series_posts as $series): ?>
+	<?php if (in_array($series->ID, $exclude)) continue; ?>
+	<?php $series_thumbnail = sp_get_image($series->ID, $thumbnail_size); ?>
+	<?php $excerpt = sp_ensure_excerpt($series, 140); ?>
 
-		<div class="series-gallery-item item-<?php echo $class; ?>">
-			<a href="<?php print get_permalink($series->ID); ?>" >
-				<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
-				<div class="series-gallery-item-image" style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+	<div class="series-gallery-item item-<?php echo $class; ?>">
+		<a href="<?php print get_permalink($series->ID); ?>">
+			<!-- <img class="series-gallery-item-image" src="<?php print $series_thumbnail[0]; ?>" /> -->
+			<div class="series-gallery-item-image"
+				style="background-size:cover;background-image:url(<?php print $series_thumbnail[0]; ?>);">&nbsp;
+			</div>
+			<div class="series-gallery-item-image-overlay">
+				<div class="series-gallery-item-image-caption">
+					<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
+					<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
+					<div class="series-gallery-item-excerpt"><?php echo $excerpt; ?></div>
 				</div>
-				<div class="series-gallery-item-image-overlay">
-					<div class="series-gallery-item-image-caption">
-						<div class="series-gallery-item-title"><?php echo $series->post_title; ?></div>
-						<div class="series-gallery-item-excerpt"><?php echo $series->post_excerpt; ?></div>
-						<div class="series-gallery-item-date"><?php echo get_the_time('F Y', $series->ID); ?></div>
-					</div>
-				</div>
-			</a>
-		</div>
-		<?php $counter = ($counter + 1) % 3; ?>
-		<?php endforeach; ?>
+			</div>
+		</a>
 	</div>
-	<div style="clear:both;">&nbsp;</div>
+	<?php $counter = ($counter + 1) % 3; ?>
+	<?php endforeach; ?>
+</div>
+<div style="clear:both;">&nbsp;</div>
 
-	<?php
+<?php
 }
 
 // REGISTER GALLERY SHORTCODES
@@ -1002,64 +1013,70 @@ function sp_options_page()
 	// include "options.php";
 	?>
 
-	<div class="wrap">
-		<h2>Sermon Publisher Options</h2>
-		<div class="sp_thanks updated">
-			<p>
-				Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
-				It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
-			</p>
-		</div>
-		
-		<div class="sp_instructions">
-			<p>
-				This plugin provides three shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery].
-			</p>
-			<ul>
-				<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
-				<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
-				<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
-			</ul>
-			<p>
-				Each shortcode provides additional options:
-			</p>
-			<ul>
-				<li><code>before</code>: HTML to display before the shortcode output.</li>
-				<li><code>after</code>: HTML to display after the shortcode output.</li>
-				<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image has text on the right, left, or in an overlay element.</li>
-				<li><code>limit</code>: controls how many items will be shown in a gallery
-			</ul>
-		</div>
+<div class="wrap">
+	<h2>Sermon Publisher Options</h2>
+	<div class="sp_thanks updated">
+		<p>
+			Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
+			It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
+		</p>
+	</div>
 
-		<?php ini_set('max_execution_time', '300'); ?>
-		<?php if (ini_get('max_execution_time') < '300'): ?>
-			<div class="sp_alert error">
-				Your server is configured to kill PHP scripts after <?php echo ini_get('max_execution_time'); ?> seconds. Uploading files to archive.org may take longer than that. If you have errors uploading to archive.org, consider increasing this value in your php.ini file.
-			</div>
-		<?php endif; ?>
+	<div class="sp_instructions">
+		<p>
+			This plugin provides three shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery].
+		</p>
+		<ul>
+			<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
+			<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
+			<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
+		</ul>
+		<p>
+			Each shortcode provides additional options:
+		</p>
+		<ul>
+			<li><code>before</code>: HTML to display before the shortcode output.</li>
+			<li><code>after</code>: HTML to display after the shortcode output.</li>
+			<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image
+				has text on the right, left, or in an overlay element.</li>
+			<li><code>limit</code>: controls how many items will be shown in a gallery
+		</ul>
+	</div>
 
-		<div class="sp_podcasting_information updated">
+	<?php ini_set('max_execution_time', '300'); ?>
+	<?php if (ini_get('max_execution_time') < '300'): ?>
+	<div class="sp_alert error">
+		Your server is configured to kill PHP scripts after <?php echo ini_get('max_execution_time'); ?> seconds. Uploading
+		files to archive.org may take longer than that. If you have errors uploading to archive.org, consider increasing
+		this value in your php.ini file.
+	</div>
+	<?php endif; ?>
+
+	<div class="sp_podcasting_information updated">
 		<?php if(!defined('PODCASTING_VERSION')): ?>
-			It looks like you haven't yet installed the <a href="https://wordpress.org/plugins/podcasting/">Podcasting Plugin</a> yet. The advantage of the podcasting plugin is that you can host multiple media files on your site and the plugin will automatically create separate podcast feeds for each type. It's convenient, but not needed.
+		It looks like you haven't yet installed the <a href="https://wordpress.org/plugins/podcasting/">Podcasting
+			Plugin</a> yet. The advantage of the podcasting plugin is that you can host multiple media files on your site and
+		the plugin will automatically create separate podcast feeds for each type. It's convenient, but not needed.
 		<?php else: ?>
-			<?php $location = get_option('pod_player_location'); ?>
-			<?php $formats = unserialize(get_option('pod_formats')); ?>
-			<?php if (! array_key_exists('audio', $formats) || $location != '') : ?>
-			PODCASTING: It looks like you have the Podcasting Plugin successfully installed, but make sure you do the following things on its settings page:
-			<ul>
-				<?php if ($location != '') echo "<li>SET podcast player location to \"Manual.\"</li>"; ?>
-				<?php if (! array_key_exists('video', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"video.\" (If you want to use video files.)</li>"; ?>
-				<?php if (! array_key_exists('audio', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"audio.\"</li>"; ?>
-			</ul>
-			<?php else: ?>
-			PODCASTING: It looks like you have the Podcasting Plugin successfully installed and configured properly!
-			<?php endif; ?>
+		<?php $location = get_option('pod_player_location'); ?>
+		<?php $formats = unserialize(get_option('pod_formats')); ?>
+		<?php if (! array_key_exists('audio', $formats) || $location != '') : ?>
+		PODCASTING: It looks like you have the Podcasting Plugin successfully installed, but make sure you do the following
+		things on its settings page:
+		<ul>
+			<?php if ($location != '') echo "<li>SET podcast player location to \"Manual.\"</li>"; ?>
+			<?php if (! array_key_exists('video', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"video.\" (If you want to use video files.)</li>"; ?>
+			<?php if (! array_key_exists('audio', $formats)) echo "<li>CREATE a podcast format feed with the format slug of \"audio.\"</li>"; ?>
+		</ul>
+		<?php else: ?>
+		PODCASTING: It looks like you have the Podcasting Plugin successfully installed and configured properly!
 		<?php endif; ?>
-		</div>
+		<?php endif; ?>
+	</div>
 
-		<?php $stored_options = get_option('sp_options'); ?>
+	<?php $stored_options = get_option('sp_options'); ?>
 
-		<?php
+	<?php
 
 		$options = Array(
 			'sermon_word_singular'=>Array(
@@ -1138,122 +1155,133 @@ function sp_options_page()
 			$options['archive_upload']['value']='';
 			?>
 
-			<div class="sp_alert error">
-				Your server is configured without PHP's libCURL features. Uploading to archive.org will not be possible.
-			</div>
+	<div class="sp_alert error">
+		Your server is configured without PHP's libCURL features. Uploading to archive.org will not be possible.
+	</div>
 
-			<?php
+	<?php
 		}
 		?>
 
 
-		<form method="post" action="options.php">
-			<?php settings_fields('sp_options'); ?>
-			<?php //do_settings_sections('sp-option-group'); ?>
+	<form method="post" action="options.php">
+		<?php settings_fields('sp_options'); ?>
+		<?php //do_settings_sections('sp-option-group'); ?>
 
-			<table class="form-table">
+		<table class="form-table">
 
-				<?php foreach ($options as $key=>$value): ?>
-				<tr valign="top">
-					<th scope="row"><?php echo $value['label']; ?></th>
-					<td>
-						<?php if ($value['type'] == 'checkbox') : ?>
-						<input name="sp_options[<?php echo $key; ?>]" type="checkbox" value="<?php echo htmlentities($value['checkvalue']); ?>" <?php checked('1', $value['value']); ?> /> <?php echo $value['label']; ?>
-						<?php elseif ($value['type'] == 'text') : ?>
-						<input style="width:60%;" name="sp_options[<?php echo $key; ?>]" type="text" value="<?php echo htmlentities($value['value']); ?>" />
-						<?php endif; ?>
-						<p><?php echo $value['description']; ?></p>
-					</td>
-				</tr>
-				<?php endforeach; ?>
-				
-				<!-- CHART OF SERMONS WITH FILES THAT CAN BE HOSTED ON ARCHIVE.ORG -->
-				<!-- CHECKBOX FOR HOSTING FILES ON ARCHIVE.ORG -->
+			<?php foreach ($options as $key=>$value): ?>
+			<tr valign="top">
+				<th scope="row"><?php echo $value['label']; ?></th>
+				<td>
+					<?php if ($value['type'] == 'checkbox') : ?>
+					<input name="sp_options[<?php echo $key; ?>]" type="checkbox"
+						value="<?php echo htmlentities($value['checkvalue']); ?>" <?php checked('1', $value['value']); ?> />
+					<?php echo $value['label']; ?>
+					<?php elseif ($value['type'] == 'text') : ?>
+					<input style="width:60%;" name="sp_options[<?php echo $key; ?>]" type="text"
+						value="<?php echo htmlentities($value['value']); ?>" />
+					<?php endif; ?>
+					<p><?php echo $value['description']; ?></p>
+				</td>
+			</tr>
+			<?php endforeach; ?>
 
-			</table>
+			<!-- CHART OF SERMONS WITH FILES THAT CAN BE HOSTED ON ARCHIVE.ORG -->
+			<!-- CHECKBOX FOR HOSTING FILES ON ARCHIVE.ORG -->
 
-			<?php submit_button(); ?>
+		</table>
 
-		</form>
-		
-		<hr />
-		<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button> (this only uploads files) <br /><br />
-		<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button> (this removes local files if they exist on archive.org)
-		<div id="sp-host-remotely-results" style="width:100%;max-width:100%;overflow:scroll;box-sizing:border-box;padding:20px;background-color:#efe;white-space:pre;font-family:monospace;border:0;font-size:8pt;"></div>
-		
+		<?php submit_button(); ?>
+
+	</form>
+
+	<hr />
+	<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button> (this only uploads
+	files) <br /><br />
+	<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button> (this
+	removes local files if they exist on archive.org)
+	<div id="sp-host-remotely-results"
+		style="width:100%;max-width:100%;overflow:scroll;box-sizing:border-box;padding:20px;background-color:#efe;white-space:pre;font-family:monospace;border:0;font-size:8pt;">
 	</div>
-	
-	<script>
-		
-		var log_box = document.getElementById('sp-host-remotely-results');
-		
-		function sp_ajax_log(s) {
-			log_box.innerHTML = log_box.innerHTML + '<br />' + 'LOG: ' + JSON.stringify(s)
-		}
-		
-		
-		jQuery(document).ready(function($){
-			
-			function sp_chain_host_remote_requests(action, posts, current_id) {
-				if (typeof(action) == 'undefined' || action == '') return;
-				if (typeof(current_id) == 'undefined') return;
-			
-				if (current_id >= posts.length){
-					sp_ajax_log('DONE');
-					return;
-				}
 
-				var id = posts[current_id]['ID'];
-				sp_ajax_log('PROCESSING #' + id);
-				sp_ajax_log('GUID: ' + posts[current_id]['guid']);
-			
-				$.ajax({
-					url: ajaxurl,
-					data: {'action':action, 'post_id': id},
-					method: 'POST',
-					success: function(response){
-						console.log(response);
-						sp_ajax_log(response)
-					},
-					complete: function(){
-						current_id++;
-						sp_chain_host_remote_requests(action, posts, current_id);
-					}
-				})
+</div>
+
+<script>
+var log_box = document.getElementById('sp-host-remotely-results');
+
+function sp_ajax_log(s) {
+	log_box.innerHTML = log_box.innerHTML + '<br />' + 'LOG: ' + JSON.stringify(s)
+}
+
+
+jQuery(document).ready(function($) {
+
+	function sp_chain_host_remote_requests(action, posts, current_id) {
+		if (typeof(action) == 'undefined' || action == '') return;
+		if (typeof(current_id) == 'undefined') return;
+
+		if (current_id >= posts.length) {
+			sp_ajax_log('DONE');
+			return;
+		}
+
+		var id = posts[current_id]['ID'];
+		sp_ajax_log('PROCESSING #' + id);
+		sp_ajax_log('GUID: ' + posts[current_id]['guid']);
+
+		$.ajax({
+			url: ajaxurl,
+			data: {
+				'action': action,
+				'post_id': id
+			},
+			method: 'POST',
+			success: function(response) {
+				console.log(response);
+				sp_ajax_log(response)
+			},
+			complete: function() {
+				current_id++;
+				sp_chain_host_remote_requests(action, posts, current_id);
 			}
-			
-			function sp_get_sermons(callback){
-				// first, we get all the post ids here
-				$.ajax({
-					url: ajaxurl,
-					data: {'action':'sp_get_sermons'},
-					method: 'POST',
-					success: function(sermons){
-						console.log(sermons);
-						sp_ajax_log('FOUND ' + sermons.length + ' sermons');
-						callback(sermons)
-					}
-				})
-			}
-			
-			$('#sp-upload-all').click(function(e){
-				sp_ajax_log('UPLOADING ALL LOCAL SERMON FILES TO ARCHIVE.ORG');
-				sp_get_sermons(function(sermons){
-					sp_chain_host_remote_requests('sp_upload', sermons, 0);
-				})
-				
-			})
-			
-			$('#sp-host-remotely').click(function(e){
-				sp_ajax_log('REMOVING LOCAL FILES IF THEY EXIST ON ARCHIVE.ORG');
-				sp_get_sermons(function(sermons){
-					sp_chain_host_remote_requests('sp_host_remotely', sermons, 0);
-				})
-			})
 		})
-	</script>
-	
-	<?php
+	}
+
+	function sp_get_sermons(callback) {
+		// first, we get all the post ids here
+		$.ajax({
+			url: ajaxurl,
+			data: {
+				'action': 'sp_get_sermons'
+			},
+			method: 'POST',
+			success: function(sermons) {
+				console.log(sermons);
+				sp_ajax_log('FOUND ' + sermons.length + ' sermons');
+				callback(sermons)
+			}
+		})
+	}
+
+	$('#sp-upload-all').click(function(e) {
+		sp_ajax_log('UPLOADING ALL LOCAL SERMON FILES TO ARCHIVE.ORG');
+		sp_get_sermons(function(sermons) {
+			sp_chain_host_remote_requests('sp_upload', sermons, 0);
+		})
+
+	})
+
+	$('#sp-host-remotely').click(function(e) {
+		sp_ajax_log('REMOVING LOCAL FILES IF THEY EXIST ON ARCHIVE.ORG');
+		sp_get_sermons(function(sermons) {
+			sp_chain_host_remote_requests('sp_host_remotely', sermons, 0);
+		})
+	})
+})
+</script>
+
+<?php
 }
 
 add_action('wp_ajax_sp_get_sermons', 'sp_ajax_get_sermons');
