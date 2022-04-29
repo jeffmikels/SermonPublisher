@@ -77,12 +77,12 @@ if ($enclosures)
 		elseif ($ext == 'webm') $title = 'webm';
 		else continue;
 
-		// we prefer the 512k version of the mp4 files
+		// we prefer the smaller version of the mp4 files
 		// if this file is an mp4
-		// and it is not named with _512k
+		// and it is not named with video_XXXk.mp4
 		// and we already have another mp4 set,
 		// then just move on and ignore this one
-		if ($ext == '.mp4' and (strpos($url, '_512k') === False) and isset($media_items['mp4'])) continue;
+		if ($ext == '.mp4' and (strpos($url, 'video_') === False) and isset($media_items['mp4'])) continue;
 		$media_items[$title] = $url;
 	}
 }
