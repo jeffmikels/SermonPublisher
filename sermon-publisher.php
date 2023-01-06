@@ -64,7 +64,7 @@ function sp_custom_post_types()
 		'rest_base' => 'series_groups',
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields', 'genesis-layouts'),
 	));
-
+  
 	register_post_type( 'sp_series', array
 	(
 		'labels' => array
@@ -94,6 +94,7 @@ function sp_custom_post_types()
 	$sermon_words = sp_get_sermon_words();
 	$singular = $sermon_words['singular'];
 	$plural = $sermon_words['plural'];
+  
 
 	register_post_type( 'sp_sermon', array
 	(
@@ -121,6 +122,31 @@ function sp_custom_post_types()
 		'rest_base' => 'sermons',
 		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting', 'excerpt', 'genesis-layouts'),
 	) );
+  
+  // return metadata in rest requests
+  foreach (['sp_sermon','sp_series','sp_series_group'] as $type) {
+    register_rest_field( $type, 'metadata', array(
+      'get_callback' => function ( $data ) {
+          return get_post_meta( $data['id'], '', '' );
+    }, ));
+  }
+
+  // return thumbnail in rest requests
+  foreach (['sp_sermon','sp_series','sp_series_group'] as $type) {
+    register_rest_field( $type, 'featured_image', array(
+      'get_callback' => function ( $data ) {
+          $id = $data['id'];
+					$featured_id = get_post_thumbnail_id($id);
+					$images = array();
+					foreach (['full','large','medium','thumbnail'] as $size)
+					{
+						$details = wp_get_attachment_image_src($featured_id, $size);
+						$images[$size] = empty($details) ? array() : $details;
+					}
+          return $images;
+    }, ));
+  }
+
 }
 add_action( 'init', 'sp_custom_post_types' );
 
@@ -1014,35 +1040,9 @@ function sp_options_page()
 	?>
 
 <div class="wrap">
-	<h2>Sermon Publisher Options</h2>
-	<div class="sp_thanks updated">
-		<p>
-			Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
-			It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
-		</p>
-	</div>
-
-	<div class="sp_instructions">
-		<p>
-			This plugin provides three shortcodes: [sp_featured], [sp_gallery], [sp_full_gallery].
-		</p>
-		<ul>
-			<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
-			<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
-			<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
-		</ul>
-		<p>
-			Each shortcode provides additional options:
-		</p>
-		<ul>
-			<li><code>before</code>: HTML to display before the shortcode output.</li>
-			<li><code>after</code>: HTML to display after the shortcode output.</li>
-			<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image
-				has text on the right, left, or in an overlay element.</li>
-			<li><code>limit</code>: controls how many items will be shown in a gallery
-		</ul>
-	</div>
-
+	<h2>Sermon Publisher Instructions</h2>
+	
+	<!-- Checking for errors -->
 	<?php ini_set('max_execution_time', '300'); ?>
 	<?php if (ini_get('max_execution_time') < '300'): ?>
 	<div class="sp_alert error">
@@ -1051,7 +1051,16 @@ function sp_options_page()
 		this value in your php.ini file.
 	</div>
 	<?php endif; ?>
-
+	
+	<!-- Thanks -->
+	<div class="sp_thanks updated">
+		<p>
+			Thank you for installing the Sermon Publisher plugin by <a href="http://jeff.mikels.cc">Jeff Mikels.</a>
+			It is truly my hope and prayer that this plugin allows you to proclaim the Gospel of Jesus more effectively.
+		</p>
+	</div>
+	
+	<!-- Podcasting Information -->
 	<div class="sp_podcasting_information updated">
 		<?php if(!defined('PODCASTING_VERSION')): ?>
 		It looks like you haven't yet installed the <a href="https://wordpress.org/plugins/podcasting/">Podcasting
@@ -1074,6 +1083,41 @@ function sp_options_page()
 		<?php endif; ?>
 	</div>
 
+	<!-- Instructions -->
+	<div class="sp_instructions">
+		<h3>Available Shortcodes</h3>
+		<p>
+			This plugin provides three shortcodes you can use anywhere on your site: [sp_featured], [sp_gallery], [sp_full_gallery].
+		</p>
+		<ul>
+			<li><code>[sp_featured]</code>: displays a large image of the series with the most recent message.</li>
+			<li><code>[sp_gallery]</code>: displays a gallery of all sermon series ordered by date.</li>
+			<li><code>[sp_full_gallery]</code>: combines the two others into one shortcode.</li>
+		</ul>
+		<p>
+			Each shortcode provides additional options:
+		</p>
+		<ul>
+			<li><code>before</code>: HTML to display before the shortcode output.</li>
+			<li><code>after</code>: HTML to display after the shortcode output.</li>
+			<li><code>format</code>: can be overlay (default), left, or right to specify whether the featured shortcode image
+				has text on the right, left, or in an overlay element.</li>
+			<li><code>limit</code>: controls how many items will be shown in a gallery
+		</ul>
+		
+		<h3>Other Instructions</h3>
+		<p>
+			This plugin has added three new content types to your site:
+		</p>
+		<ul>
+			<li><strong>Sermons</strong>: This is where you will upload media files, link to YouTube videos, and describe the sermon with text. Note: You can change the word used for "Sermons"</li>
+			<li><strong>Series Pages</strong>: Every sermon should be associated with a series, even if it is as standalone sermon. The sermon gets its graphic from the series page.</li>
+			<li><strong>Series Groups</strong>: Multiple Series can be linked together in Series Groups.</li>
+		</ul>
+	</div>
+
+
+	<h2>Sermon Publisher Settings</h2>
 	<?php $stored_options = get_option('sp_options'); ?>
 
 	<?php
@@ -1081,23 +1125,23 @@ function sp_options_page()
 		$options = Array(
 			'sermon_word_singular'=>Array(
 				'type'=>'text',
-				'label'=>'"Sermon" Word',
+				'label'=>'"Sermon" Word (singular)',
 				'value'=>'sermon',
-				'description'=>'What word should be used for "sermon" on public pages? The default word is "sermon."'
+				'description'=>'What word should be used for "sermon" on public pages? The default word is "sermon." Use lowercase.'
 			),
 			'sermon_word_plural'=>Array(
 				'type'=>'text',
-				'label'=>'"Sermons" Word',
+				'label'=>'"Sermons" Word (plural)',
 				'value'=>'sermons',
-				'description'=>'What word should be used for "sermons" on public pages? The default word is "sermons."'
+				'description'=>'What word should be used for "sermons" on public pages? The default word is "sermons." Use lowercase.'
 			),
-			'delete_uploads'=>Array(
-				'type'=>'checkbox',
-				'label'=>'Delete Uploads',
-				'value'=>'0',
-				'checkvalue'=>'1',
-				'description'=>'If this box is checked, we will delete all uploads from the WordPress media library when the post is published.'
-			),
+			// 'delete_uploads'=>Array(
+			// 	'type'=>'checkbox',
+			// 	'label'=>'Delete Uploads',
+			// 	'value'=>'0',
+			// 	'checkvalue'=>'1',
+			// 	'description'=>'If this box is checked, we will delete all uploads from the WordPress media library when the post is published.'
+			// ),
 			'send_to_archive'=>Array(
 				'type'=>'checkbox',
 				'label'=>'Send to Archive.org',
@@ -1156,7 +1200,7 @@ function sp_options_page()
 			?>
 
 	<div class="sp_alert error">
-		Your server is configured without PHP's libCURL features. Uploading to archive.org will not be possible.
+		Your server is configured without PHP's libCURL features. Uploading to <code>archive.org</code> will not be possible.
 	</div>
 
 	<?php
@@ -1197,10 +1241,10 @@ function sp_options_page()
 	</form>
 
 	<hr />
-	<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button> (this only uploads
-	files) <br /><br />
-	<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button> (this
-	removes local files if they exist on archive.org)
+	<button class="button button-primary" id="sp-upload-all">Upload All Sermons to Archive.org</button>
+	 (this only uploads files) <br /><br />
+	<button class="button button-primary" id="sp-host-remotely">Host Uploaded Sermons From archive.org</button>
+	 (this removes local files if they exist on archive.org)
 	<div id="sp-host-remotely-results"
 		style="width:100%;max-width:100%;overflow:scroll;box-sizing:border-box;padding:20px;background-color:#efe;white-space:pre;font-family:monospace;border:0;font-size:8pt;">
 	</div>
