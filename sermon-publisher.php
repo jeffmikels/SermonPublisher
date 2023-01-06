@@ -61,7 +61,7 @@ function sp_custom_post_types()
 		'exclude_from_search' => false,
 		'menu_position' => 20,
 		'show_in_rest' => true,
-		'rest_base' => 'series_groups',
+		'rest_base' => 'sp_series_group',
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields', 'genesis-layouts'),
 	));
   
@@ -88,7 +88,7 @@ function sp_custom_post_types()
 		'exclude_from_search' => false,
 		'menu_position' => 20,
 		'show_in_rest' => true,
-		'rest_base' => 'series',
+		'rest_base' => 'sp_series',
 		'supports' => array('title', 'editor', 'author', 'thumbnail', 'excerpt', 'custom-fields', 'genesis-layouts'),
 	));
 	$sermon_words = sp_get_sermon_words();
@@ -119,7 +119,7 @@ function sp_custom_post_types()
 		'exclude_from_search' => false,
 		'menu_position' => 20,
 		'show_in_rest' => true,
-		'rest_base' => 'sermons',
+		'rest_base' => 'sp_sermon',
 		'supports' => array('title', 'editor', 'author', 'custom-fields', 'podcasting', 'excerpt', 'genesis-layouts'),
 	) );
   
