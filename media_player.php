@@ -17,8 +17,8 @@ if ( is_page() or is_single() ) $display = 'block';
 else $display = 'none';
 
 $media_items = Array();
-$enclosures = get_post_custom_values('enclosure');
-$poster = get_post_custom_values('poster');
+$enclosures = get_post_custom_values('enclosure') ?? [];
+$poster = get_post_custom_values('poster') ?? [];
 $youtube_link = get_post_meta($post->ID, 'youtube_link', TRUE);
 
 if (count($poster) > 0) $poster = $poster[0];
